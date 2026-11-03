@@ -1,0 +1,23 @@
+/* ---------- light theme: tokens + hand-tuned parts ---------- */
+:root[data-theme=light]{
+  --night:#F6F5FB;--ink:#181430;--muted:rgba(24,20,48,.68);--faint:rgba(24,20,48,.48);
+  --glass:rgba(255,255,255,.72);--glass-2:rgba(255,255,255,.9);--line:rgba(24,20,48,.10);--line-2:rgba(24,20,48,.17);
+  --A:#2563D6;--B:#9A3CD2;--C:#D63048;--ok:#0E8C5C;--bad:#D63048;--warn:#B27014;--lilac:#684CD6;--pink:#C23E88;
+  --ch1:#C23E88;--ch2:#684CD6;--ch3:#2563D6;--ch4:#0E8C5C;--ch-bg:#fff;
+  color-scheme:light}
+[data-theme=light] .glass,[data-theme=light] .card{box-shadow:0 1px 2px rgba(40,30,90,.05),0 10px 30px -12px rgba(40,30,90,.14)}
+/* globe media: inverted into a pale globe on a white plate */
+[data-theme=light] .plate img,[data-theme=light] .plate video,[data-theme=light] .backdrop img{filter:invert(1) hue-rotate(180deg) saturate(1.25) brightness(1.02)}
+[data-theme=light] .backdrop img{opacity:.42}
+[data-theme=light] .pill-white,[data-theme=light] .pill-white:hover{color:#fff}
+[data-theme=light] .pill-white:hover{background:#2c2550}
+[data-theme=light] .em{background:linear-gradient(135deg,rgba(194,62,136,.10),rgba(104,76,214,.06));box-shadow:inset 0 1px 0 #fff}
+[data-theme=light] .chip{box-shadow:inset 0 1px 0 #fff,0 10px 30px rgba(40,30,90,.12),0 0 24px color-mix(in srgb,var(--acc) 25%,transparent)}
+[data-theme=light] .chip.hex{color:#fff;background:rgba(24,20,48,.55)}
+[data-theme=light] ::selection{background:rgba(104,76,214,.22)}
+/* theme toggle */
+.theme-btn{position:relative}
+.theme-btn .ic{width:18px;height:18px}
+.theme-btn .i-sun{display:none}
+[data-theme=light] .theme-btn .i-sun{display:inline-block}
+[data-theme=light] .theme-btn .i-moon{display:none}

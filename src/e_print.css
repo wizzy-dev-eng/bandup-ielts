@@ -1,0 +1,38 @@
+@media print{
+  @page{size:A4;margin:16mm 14mm}
+  :root{color-scheme:light only}
+  html,body{background:#fff!important;color:#000!important}
+  body{font-size:11pt;line-height:1.45}
+  .nav,.sheet,.backdrop,.footer,.toast,.skip,.hero,.check-bar,.audio,.tabbar,.runner-nav,.stepper,.icon-btn,.pill,.txt-btn,.timer-chip,.rtabs,.no-print,dialog{display:none!important}
+  .page{padding:0!important;max-width:none}
+  .glass,.card,.panel,.grp,.passage,.tbl-wrap,figure.chart,.summary,.optlist,.form-card,.cue,.model,.prompt,details.disc,.bubble,.fb,.wordbox span,.process li{background:#fff!important;border-color:#999!important;color:#000!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important}
+  .grad{background:none!important;color:#000!important;-webkit-text-fill-color:#000}
+  *{color:#000!important;text-shadow:none!important}
+  .muted,.faint,.instr,.passage p,.prose p{color:#222!important}
+  .lightline{background:#999!important}.lightline i{display:none}
+  .reading-split{display:block!important}.reading-split .passage{position:static!important;max-height:none!important;overflow:visible!important}
+  [data-rpanel][hidden]{display:block!important}
+  .ch-t,.ch-title{fill:#000!important}.ch-grid{stroke:#ccc!important}.ch-axis{stroke:#000!important}
+  input.gap,select.gsel,.inp{border:0!important;border-bottom:1px solid #000!important;border-radius:0!important;background:#fff!important}
+  details.disc>.dc{display:block!important}
+  .grp,.passage,.panel,figure.chart,.cue{break-inside:avoid}
+  a{text-decoration:none}
+  body.printing>*:not(#print-root){display:none!important}
+  body.printing #print-root{display:block!important}
+}
+#print-root{font-family:var(--body);color:#000}
+#print-root h1{font:300 24pt/1.15 var(--display);margin:0 0 6pt}
+#print-root h2{font-size:15pt;margin:16pt 0 6pt;border-bottom:1px solid #999;padding-bottom:3pt}
+#print-root h3{font-size:12pt;margin:12pt 0 4pt}
+#print-root p{margin:0 0 5pt}
+#print-root .pb{break-before:page}
+#print-root .pline{border-bottom:1px solid #999;height:9mm}
+#print-root .pgap{display:inline-block;min-width:28mm;border-bottom:1px solid #000;margin:0 2pt}
+#print-root table{border-collapse:collapse;width:100%;margin:6pt 0}
+#print-root td,#print-root th{border:1px solid #999;padding:4pt 6pt;text-align:left;vertical-align:top;font-size:10pt}
+#print-root .ptask{break-inside:auto}
+#print-root .pcue{border:1px solid #000;padding:8pt 10pt;margin:6pt 0}
+#print-root svg .ch-t,#print-root svg .ch-title{fill:#000}
+#print-root svg .ch-grid{stroke:#ccc}#print-root svg .ch-axis{stroke:#000}
+#print-root ol.process{display:block}#print-root ol.process li{border:1px solid #999;margin:3pt 0;padding:4pt;list-style:none}
+#print-root ol.process li::after{content:none}

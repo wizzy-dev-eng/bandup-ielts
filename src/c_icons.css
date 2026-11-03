@@ -1,0 +1,16 @@
+/* ---------- SVG icons in place of emoji ---------- */
+svg.ic{display:inline-block;vertical-align:-.2em}
+.em{display:inline-grid;place-items:center;flex:none;width:48px;height:48px;border-radius:15px;color:var(--lilac);background:linear-gradient(135deg,rgba(246,169,211,.16),rgba(200,182,255,.06));border:1px solid var(--line-2);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.em .ic{width:23px;height:23px;stroke-width:1.6;vertical-align:0}
+.em-lg{width:68px;height:68px;border-radius:20px;margin:0 auto 14px}.em-lg .ic{width:32px;height:32px}
+.lv-A .em{color:var(--A)}.lv-B .em{color:var(--B)}.lv-C .em{color:var(--C)}
+.diff-card .em{margin-bottom:6px}
+details.disc>summary>.ic,.grp-title>.ic,.page-label .ic{color:var(--lilac);width:18px;height:18px}
+.grp-title>.ic{margin-right:2px}
+.glass-pill .ic{width:16px;height:16px;color:var(--lilac)}
+.lp .ic{width:14px;height:14px}
+.fb .st .ic{width:15px;height:15px;stroke-width:2.4;margin-right:2px}
+.mode-hint .ic{color:var(--warn);width:16px;height:16px}
+td.en .ic{width:15px;height:15px;color:var(--lilac);margin-right:4px}
+.ok .ic{stroke-width:2.4}
+.vic{display:inline-flex;gap:6px;color:var(--lilac)}.vic .ic{width:16px;height:16px}
