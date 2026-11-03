@@ -5,26 +5,28 @@ function stillImg(cls = '') { return `<img class="${cls}" src="${esc(MEDIA.still
 function fixImgFallback(root) { $$('img[data-remote]', root).forEach(img => { const f = () => { if (img.src !== img.dataset.remote) img.src = img.dataset.remote; }; img.addEventListener('error', f, { once: true }); if (img.complete && img.naturalWidth === 0) f(); }); }
 function shellHtml() {
   return `<a class="skip" href="#main" data-i18n="common.skip">${lang === 'ru' ? 'К содержанию' : 'Skip to content'}</a>
-<div class="backdrop" aria-hidden="true">${stillImg()}</div>
 <header class="nav" id="nav">
-  <a class="brand" href="#/" aria-label="${esc(D.meta.brand)} – home"><span class="logo" aria-hidden="true"><i></i><i></i></span><span>${esc(D.meta.brand)}</span></a>
-  <nav class="nav-links" aria-label="Main">${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}"><span class="nico" aria-hidden="true">${ic(k)}</span>${T(l)}</a>`).join('')}</nav>
-  <div class="nav-right">
-    <div class="lang"><button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" data-i18n-label="nav.lang" aria-label="${esc(t('nav.lang'))}">${ic('globe')}<span class="lc">${lang.toUpperCase()}</span>${ic('chev', 'chev')}</button>
-      <div class="lang-menu" id="langMenu" role="menu" hidden><button role="menuitemradio" data-lang="en" aria-checked="${lang === 'en'}">English · EN</button><button role="menuitemradio" data-lang="ru" aria-checked="${lang === 'ru'}">Русский · RU</button></div></div>
-    <button class="lang-btn theme-btn" id="themeBtn" type="button">${ic('sun', 'i-sun')}${ic('moon', 'i-moon')}</button>
-    <a class="pill pill-white pill-start" href="#/practice">${T('nav.start')}</a>
-    <button class="pill pill-outline pill-profile" id="profileBtn">${ic('user')}${T('nav.profile', 'span', 'lbl')}<span class="badge" id="profileBadge" hidden></span></button>
-    <button class="burger" id="burger" aria-expanded="false" aria-controls="sheet" data-i18n-label="nav.menu" aria-label="${esc(t('nav.menu'))}"><i></i><i></i></button>
+  <div class="nav-row">
+    <a class="brand" href="#/" aria-label="${esc(D.meta.brand)} – home">${brandHtml()}</a>
+    <nav class="nav-links" aria-label="Main"><span class="nav-ind" aria-hidden="true"></span>${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}">${T(l)}</a>`).join('')}</nav>
+    <div class="nav-right">
+      <div class="lang"><button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" data-i18n-label="nav.lang" aria-label="${esc(t('nav.lang'))}">${ic('globe')}<span class="lc">${lang.toUpperCase()}</span>${ic('chev', 'chev')}</button>
+        <div class="lang-menu" id="langMenu" role="menu" hidden><button role="menuitemradio" data-lang="en" aria-checked="${lang === 'en'}"><span>English · EN</span><span class="mchk">${ic('check', 'draw')}</span></button><button role="menuitemradio" data-lang="ru" aria-checked="${lang === 'ru'}"><span>Русский · RU</span><span class="mchk">${ic('check', 'draw')}</span></button></div></div>
+      <button class="icon-btn gear-btn" id="gearBtn" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-label="set.title" aria-label="${esc(t('set.title'))}" data-tip="${esc(t('set.title'))}">${ic('gear')}</button>
+      <div class="auth-slot" id="authSlot"></div>
+      <button class="burger" id="burger" aria-expanded="false" aria-controls="sheet" data-i18n-label="nav.menu" aria-label="${esc(t('nav.menu'))}"><i></i><i></i></button>
+    </div>
   </div>
+  <div class="nav-search" id="navSearch">${searchHtml()}</div>
 </header>
 <div class="sheet" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" aria-label="Menu">
-  <div class="sheet-top"><a class="brand" href="#/"><span class="logo" aria-hidden="true"><i></i><i></i></span><span>${esc(D.meta.brand)}</span></a><button class="icon-btn" id="sheetClose" data-i18n-label="nav.close" aria-label="${esc(t('nav.close'))}">${ic('x')}</button></div>
+  <div class="sheet-top"><a class="brand" href="#/">${brandHtml()}</a><button class="icon-btn" id="sheetClose" data-i18n-label="nav.close" aria-label="${esc(t('nav.close'))}">${ic('x')}</button></div>
   ${NAV.map(([k, h, l]) => `<a class="sl" href="${h}" data-nav="${k}">${ic(k)}${T(l)}</a>`).join('')}
   <a class="sl" href="#/about" data-nav="about">${ic('about')}${T('nav.about')}</a>
+  <a class="sl" href="#/people" data-nav="people">${ic('people')}<span data-i18n="people.title">${esc(t('people.title'))}</span></a>
   <div class="seg" role="group" aria-label="Language"><button data-lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="ru" aria-pressed="${lang === 'ru'}">RU</button></div>
-  <div class="seg" role="group" data-theme-seg><button data-theme-set="dark">${ic('moon')}<span data-tl="dark"></span></button><button data-theme-set="light">${ic('sun')}<span data-tl="light"></span></button></div>
-  <div class="sheet-actions"><a class="pill pill-white" href="#/practice">${T('nav.start')}</a><button class="pill pill-outline" data-profile>${T('nav.profile')}</button></div>
+  <button class="sl sl-btn" type="button" data-open-settings>${ic('gear')}${T('set.title')}</button>
+  <div class="sheet-actions" id="sheetAuth"></div>
 </div></div>
 <main id="main" tabindex="-1"><div id="view"></div></main>
 <div id="print-root" aria-hidden="true"></div>
@@ -33,7 +35,7 @@ function shellHtml() {
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--pink)"/><stop offset="1" style="stop-color:var(--lilac)"/></linearGradient></defs></svg>`;
 }
 function footerHtml() {
-  return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand" href="#/"><span class="logo" aria-hidden="true"><i></i><i></i></span><span>${esc(D.meta.brand)}</span></a>
+  return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand" href="#/">${brandHtml()}</a>
   <nav aria-label="Footer"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a></nav></div>
   <p>${T('common.footer')}</p><p>${esc(D.meta.note)}</p></footer>`;
 }
@@ -41,18 +43,15 @@ function initShell() {
   document.body.insertAdjacentHTML('afterbegin', shellHtml());
   fixImgFallback(document.body);
   const nav = $('#nav');
-  const onScroll = () => nav.classList.toggle('scrolled', scrollY > 10);
+  let lastY = scrollY;
+  const onScroll = () => { const y = scrollY; nav.classList.toggle('scrolled', y > 10); if (Math.abs(y - lastY) > 6) { nav.classList.toggle('compact', y > 160 && y > lastY && !nav.contains(document.activeElement)); lastY = y; } };
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
   // language menu
   const lb = $('#langBtn'), lm = $('#langMenu');
   const closeLm = () => { lm.hidden = true; lb.setAttribute('aria-expanded', 'false'); };
   lb.addEventListener('click', e => { e.stopPropagation(); const o = lm.hidden; lm.hidden = !o; lb.setAttribute('aria-expanded', String(o)); if (o) $('button[aria-checked=true]', lm).focus(); });
   lm.addEventListener('keydown', e => { const b = $$('button', lm), i = b.indexOf(document.activeElement); if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); b[(i + (e.key === 'ArrowDown' ? 1 : -1) + b.length) % b.length].focus(); } if (e.key === 'Escape') { closeLm(); lb.focus(); } });
-  const syncTheme = () => { const th = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark', ru = lang === 'ru'; const tb = $('#themeBtn'); if (tb) { const l = th === 'light' ? (ru ? 'Включить тёмную тему' : 'Switch to dark theme') : (ru ? 'Включить светлую тему' : 'Switch to light theme'); tb.setAttribute('aria-label', l); tb.title = l; } $$('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeSet === th))); $$('[data-tl]').forEach(s => { s.textContent = s.dataset.tl === 'light' ? (ru ? 'Светлая' : 'Light') : (ru ? 'Тёмная' : 'Dark'); }); const sg = $('[data-theme-seg]'); if (sg) sg.setAttribute('aria-label', ru ? 'Тема' : 'Theme'); };
-  const setTheme = v => { document.documentElement.dataset.theme = v; try { localStorage.setItem('bandup.theme', v); } catch (e) { } const m = $('meta[name=theme-color]'); if (m) m.content = v === 'light' ? '#F6F5FB' : '#05050A'; const cs = $('meta[name=color-scheme]'); if (cs) cs.content = v; syncTheme(); };
-  syncTheme(); on('lang', syncTheme);
-  try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => { let s = null; try { s = localStorage.getItem('bandup.theme'); } catch (x) { } if (!s) { setTheme(e.matches ? 'light' : 'dark'); try { localStorage.removeItem('bandup.theme'); } catch (x) { } } }); } catch (e) { }
-  document.addEventListener('click', e => { const tbn = e.target.closest('#themeBtn, [data-theme-set]'); if (tbn) setTheme(tbn.id === 'themeBtn' ? (document.documentElement.dataset.theme === 'light' ? 'dark' : 'light') : tbn.dataset.themeSet);
+  document.addEventListener('click', e => { if (e.target.closest('[data-open-settings]')) { e.preventDefault(); closeSheet(false); openSettings(); }
   if (!e.target.closest('.lang')) closeLm(); const lbtn = e.target.closest('[data-lang]'); if (lbtn) { setLang(lbtn.dataset.lang); closeLm(); } });
   // sheet
   const sheet = $('#sheet'), burger = $('#burger');
@@ -65,12 +64,20 @@ function initShell() {
     if (e.key === 'Escape') closeSheet();
     if (e.key === 'Tab') { const f = $$('a,button', sheet).filter(x => x.offsetParent); const first = f[0], last = f[f.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
   });
-  addEventListener('hashchange', () => closeSheet(false));
-  $('#profileBtn').addEventListener('click', openProfile);
+  addEventListener('hashchange', () => { closeSheet(false); if (typeof closeSettings === 'function' && document.body.classList.contains('set-open')) closeSettings(); });
+  $('#gearBtn').addEventListener('click', () => openSettings());
+  addEventListener('resize', debounce(() => moveNavInd(true), 100));
+  initSearch(); renderAuth();
   on('lang', () => { $('.lc', lb).textContent = lang.toUpperCase(); $$('[data-lang]').forEach(b => { b.setAttribute(b.getAttribute('role') === 'menuitemradio' ? 'aria-checked' : 'aria-pressed', String(b.dataset.lang === lang)); }); $('.skip').textContent = lang === 'ru' ? 'К содержанию' : 'Skip to content'; updateBadge(); });
   on('profile', updateBadge); updateBadge();
 }
-function setActiveNav(key) { $$('[data-nav]').forEach(a => { if (a.dataset.nav === key) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
+function setActiveNav(key) { $$('[data-nav]').forEach(a => { if (a.dataset.nav === key) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); moveNavInd(false); }
+function moveNavInd(instant) {
+  const ind = $('.nav-ind'); if (!ind) return; const a = $('.nav-links a[aria-current="page"]');
+  if (!a || !a.offsetWidth) { ind.classList.remove('on'); return; }
+  const first = !ind.classList.contains('on'); ind.classList.add('on');
+  liquidTo(ind, a.offsetLeft, a.offsetWidth, instant || first);
+}
 function updateBadge() { const b = $('#profileBadge'); if (!b) return; const d = daysLeft(); if (d == null || d < 0) { b.hidden = true; return; } b.hidden = false; b.textContent = lang === 'ru' ? `${d} дн.` : `${d} days`; }
 
 /* ---------- profile dialog ---------- */
@@ -160,7 +167,7 @@ async function render(opts = {}) {
   fixImgFallback(view);
   setActiveNav(meta.nav || '');
   document.title = `${D.meta.brand} – ${meta.title || ''}`;
-  $('.backdrop').style.display = meta.nav === 'home' ? 'none' : '';
+  if (meta.nav !== 'home') Globe.setMode('page');
   requestAnimationFrame(() => { view.classList.remove('pre'); });
   if (!firstRender && !instant) { const h1 = $('h1', view); if (h1) { h1.setAttribute('tabindex', '-1'); h1.focus({ preventScroll: true }); } announce(meta.title || ''); }
   firstRender = false;

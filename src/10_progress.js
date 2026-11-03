@@ -9,7 +9,7 @@ function entryName(e) {
   if (/^sp:/.test(e.taskId || '')) return `${ic('mic')} ${t('skill.S')} · ${e.taskId.slice(3)}`;
   return esc(e.taskId || '—');
 }
-const entryScore = e => e.kind === 'W' ? `${Object.values((e.extra && e.extra.words) || {}).join(' + ')} ${t('writing.words')}` : e.kind === 'S' ? `${t('writing.checklist')} ${e.score}/${e.total}` : e.kind === 'variant' ? (e.extra && e.extra.level ? `${t('variants.yourLevel')}: ${e.extra.level}` : e.total ? `${e.score}/${e.total}` : '✓') : `${e.score}/${e.total}${e.extra && e.extra.estimate != null ? ` · ≈ ${e.extra.below ? '<' : ''}${e.extra.estimate}` : ''}`;
+const entryScore = e => e.kind === 'W' ? `${Object.values((e.extra && e.extra.words) || {}).join(' + ')} ${t('writing.words')}` : e.kind === 'S' ? `${t('writing.checklist')} ${e.score}/${e.total}` : e.kind === 'variant' ? (e.extra && e.extra.level ? `${t('variants.yourLevel')}: ${e.extra.level}` : e.total ? `${e.score}/${e.total}` : '\u2713') : `${e.score}/${e.total}${e.extra && e.extra.estimate != null ? ` · ≈ ${e.extra.below ? '<' : ''}${e.extra.estimate}` : ''}`;
 route(/^\/progress$/, v => {
   const ru = lang === 'ru', all = Progress.all(), prof = Profile.get();
   const tasksDone = new Set(all.filter(e => TASK[e.taskId]).map(e => e.taskId)).size;
@@ -29,18 +29,18 @@ route(/^\/progress$/, v => {
     return `<div class="bar-col lv-${tk.level}" title="${esc(tk.code + ' ' + tk.title)}${es.length ? ` – ${t('progress.best')} ${best}%` : ''}"><div class="bar-track"><div class="bar-fill" style="height:${best}%"></div>${last != null ? `<div class="bar-last" style="bottom:${last}%"></div>` : ''}</div><span>${esc(tk.code)} ${SKILL[tk.skill].icon}</span></div>`;
   }).join('');
   const recent = all.slice(-20).reverse();
-  v.innerHTML = `<div class="page">${pageHead(`${ic('progress')} ${T('nav.progress')}`, 'progress.title', 'progress.sub')}
+  v.innerHTML = `<div class="page">${pageHead(`${ic('progress')} ${T('nav.progress')}`, 'progress.title', Auth.user ? 'progress.subSync' : 'progress.sub')}
    <div class="grid g4">${tiles.map(([k, l]) => `<div class="glass stat"><div class="k grad">${esc(k)}</div><div class="v">${esc(l)}</div></div>`).join('')}</div>
    ${prof.level ? `<p class="muted" style="margin-top:14px">${T('variants.yourLevel')}: <a class="lp lv-${prof.level}" href="#/practice?level=${prof.level}"><i></i>${esc(t('level.' + prof.level))}</a>${prof.target ? ` · ${T('profile.target')}: <strong>${esc(prof.target)}</strong>` : ''} · ${esc(ru ? 'всего времени' : 'total time')}: ${fmt(totalSec)}</p>` : ''}
    <section class="sec"><div class="sec-head"><h2 class="sec-title display"><span class="grad">${esc(ru ? 'Лучший результат по заданиям' : 'Best result per task')}</span></h2><p class="muted">${esc(ru ? 'Столбик – лучший процент, тонкая линия – последняя попытка. Для Writing и Speaking – выполнение минимума слов / самопроверка.' : 'The bar shows the best percentage, the thin line the last attempt. For Writing and Speaking it shows word minimum met / self-check.')}</p></div>
     <div class="glass"><div class="bars" role="img" aria-label="${esc(ru ? 'Диаграмма результатов по 12 заданиям' : 'Chart of results for the 12 tasks')}">${bars}</div></div></section>
    <section class="sec"><div class="sec-head"><h2 class="sec-title display"><span class="grad">${esc(ru ? 'Последние попытки' : 'Recent attempts')}</span></h2></div>
-    ${recent.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th scope="col">${esc(ru ? 'Дата' : 'Date')}</th><th scope="col">${esc(ru ? 'Задание' : 'Task')}</th><th scope="col">${esc(ru ? 'Режим' : 'Mode')}</th><th scope="col">${T('task.score')}</th><th scope="col" class="num">${esc(ru ? 'Время' : 'Time')}</th></tr></thead><tbody>${recent.map(e => `<tr><td>${esc(new Date(e.date).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))}</td><td class="en">${entryName(e)}</td><td>${e.mode === 'exam' ? T('task.exam') : T('task.practice')}</td><td>${esc(entryScore(e))}</td><td class="num">${fmt(e.seconds || 0)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="glass empty"><p>${T('progress.empty')}</p><a class="pill pill-white" href="#/practice">${T('nav.practice')} ${ic('arrow')}</a></div>`}</section>
+    ${recent.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th scope="col">${esc(ru ? 'Дата' : 'Date')}</th><th scope="col">${esc(ru ? 'Задание' : 'Task')}</th><th scope="col">${esc(ru ? 'Режим' : 'Mode')}</th><th scope="col">${T('task.score')}</th><th scope="col" class="num">${esc(ru ? 'Время' : 'Time')}</th></tr></thead><tbody>${recent.map(e => `<tr><td>${esc(new Date(e.date).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))}</td><td class="en">${entryName(e)}</td><td>${e.mode === 'exam' ? T('task.exam') : T('task.practice')}</td><td>${esc(entryScore(e)).replace('\u2713', `<span class="res-st ok">${ic('check')}</span>`)}</td><td class="num">${fmt(e.seconds || 0)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="glass empty"><p>${T('progress.empty')}</p><a class="pill pill-white" href="#/practice">${T('nav.practice')} ${ic('arrow')}</a></div>`}</section>
    <div class="check-bar"><button type="button" class="pill pill-outline" data-exp>${ic('download')} ${T('progress.export')}</button><label class="pill pill-outline" style="cursor:pointer">${ic('upload')} ${esc(ru ? 'Импорт JSON' : 'Import JSON')}<input type="file" accept="application/json,.json" data-imp class="sr-only"></label><button type="button" class="pill pill-glass" data-reset>${ic('trash')} ${T('progress.reset')}</button><button type="button" class="pill pill-glass" data-open-profile>${ic('user')} ${T('profile.title')}</button></div></div>`;
   $('[data-exp]', v).addEventListener('click', () => {
     const data = { app: D.meta.brand, version: D.meta.version, exported: new Date().toISOString(), progress: Progress.all(), profile: Profile.get(), sets: Sets.all(), drafts: Drafts.all() };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = `bandup-progress-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const a = document.createElement('a'); a.href = url; a.download = `lynx-progress-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $('[data-imp]', v).addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -54,7 +54,7 @@ route(/^\/progress$/, v => {
   $('[data-reset]', v).addEventListener('click', async () => { if (await confirmDlg(t('progress.confirm'))) { Progress.clear(); toast(ru ? 'Прогресс удалён' : 'Progress deleted'); render(); } });
   $('[data-open-profile]', v).addEventListener('click', openProfile);
   const offP = on('profile', () => { if (!$('dialog[open]')) render(); }); onCleanup(offP);
-  return { title: t('progress.title'), nav: 'progress', relang: true };
+  return { title: t('progress.title'), nav: 'progress', relang: true, auth: true };
 });
 
 /* ---------- about ---------- */

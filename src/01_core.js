@@ -53,7 +53,16 @@ function applyLang(root = document) {
   $$('[data-i18n-title]', root).forEach(el => el.setAttribute('title', t(el.dataset.i18nTitle)));
   $$('[data-i18n-ph]', root).forEach(el => el.setAttribute('placeholder', t(el.dataset.i18nPh)));
 }
-function setLang(l) { if (!D.i18n[l] || l === lang) return; lang = l; store.set(SK.lang, l); applyLang(); emit('lang', l); }
+/* data overlay: window.IELTS_RU holds Russian versions of descriptive texts (exam materials stay in English) */
+const RU = window.IELTS_RU || null;
+function byIdToIdx(arr, ov) { if (!ov || Array.isArray(ov)) return ov; const o = []; Object.keys(ov).forEach(id => { const i = arr.findIndex(x => x.id === id); if (i >= 0) o[i] = ov[id]; }); return o; }
+if (RU) { if (RU.tasks) RU.tasks = byIdToIdx(D.tasks, RU.tasks); if (RU.variants) RU.variants = byIdToIdx(D.variants, RU.variants); if (RU.levels) RU.levels = byIdToIdx(D.levels, RU.levels); }
+function maskPick(src, mask) { if (mask && typeof mask === 'object' && src && typeof src === 'object') { const o = Array.isArray(src) ? [] : {}; Object.keys(mask).forEach(k => { if (k in src && mask[k] != null) o[k] = maskPick(src[k], mask[k]); }); return o; } return src; }
+function deepApply(dst, src) { Object.keys(src).forEach(k => { const sv = src[k]; if (sv == null) return; if (typeof sv === 'object' && dst[k] && typeof dst[k] === 'object') deepApply(dst[k], sv); else dst[k] = sv; }); }
+const D_EN = RU ? JSON.parse(JSON.stringify(maskPick(D, RU))) : null;
+function applyDataLang(l) { if (!RU) return; deepApply(D, JSON.parse(JSON.stringify(l === 'ru' ? RU : D_EN))); }
+if (lang === 'ru') applyDataLang('ru');
+function setLang(l) { if (!D.i18n[l] || l === lang) return; lang = l; store.set(SK.lang, l); applyDataLang(l); applyLang(); emit('lang', l); }
 const skillName = id => t('skill.' + id);
 const SKILL = Object.fromEntries(D.skills.map(s => [s.id, s]));
 const LEVEL = Object.fromEntries(D.levels.map(l => [l.id, l]));
@@ -158,9 +167,10 @@ function confirmDlg(msg, okKey = 'common.back') {
 function tabsHtml(id, tabs, active, label, cls = '') {
   return `<div class="tabs ${cls}" role="tablist" aria-label="${esc(label)}" data-tabs="${id}">${tabs.map(tb => `<button type="button" role="tab" id="${id}-t-${tb.id}" data-tab="${tb.id}" aria-selected="${tb.id === active}" aria-controls="${id}-panel" tabindex="${tb.id === active ? 0 : -1}">${tb.html}</button>`).join('')}<span class="tab-ind" aria-hidden="true"></span></div>`;
 }
-function moveInd(tl) {
+function moveInd(tl, instant) {
   const a = $('[role=tab][aria-selected=true]', tl), ind = $('.tab-ind', tl); if (!a || !ind) return;
-  ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px';
+  const first = !ind.dataset.on; ind.dataset.on = '1';
+  if (typeof liquidTo === 'function') liquidTo(ind, a.offsetLeft, a.offsetWidth, first || instant); else { ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px'; }
 }
 function bindTabs(tl, onSelect) {
   const tabs = () => $$('[role=tab]', tl);
@@ -176,12 +186,12 @@ function bindTabs(tl, onSelect) {
     else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = list.length - 1;
     if (j != null) { e.preventDefault(); select(list[j]); }
   });
-  requestAnimationFrame(() => moveInd(tl));
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => moveInd(tl));
+  requestAnimationFrame(() => moveInd(tl, true));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => moveInd(tl, true));
   return { select: id => { const b = tabs().find(x => x.dataset.tab === id); if (b) select(b, false); } };
 }
-window.addEventListener('resize', debounce(() => $$('[role=tablist]').forEach(moveInd), 100));
-on('lang', () => requestAnimationFrame(() => $$('[role=tablist]').forEach(moveInd)));
+window.addEventListener('resize', debounce(() => $$('[role=tablist]').forEach(x => moveInd(x, true)), 100));
+on('lang', () => requestAnimationFrame(() => $$('[role=tablist]').forEach(x => moveInd(x, true))));
 
 /* ---------- timer ---------- */
 class Timer {

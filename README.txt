@@ -1,17 +1,17 @@
-BandUp – тренажёр IELTS (проект «IELTS as a Way to Assess English Proficiency: How to Prepare for It»)
+lynx. – тренажёр IELTS (проект «IELTS as a Way to Assess English Proficiency: How to Prepare for It»)
+Курочкин Ярослав, 9А, Ухтинский технический лицей им. Г. В. Рассохина
 
-Как открыть:
-  1. Распакуйте архив целиком.
-  2. Откройте index.html в Chrome, Edge, Safari или Firefox.
-  Запись голоса (Speaking) работает только по http(s): запустите в этой папке
-  «python -m http.server 8000» и откройте http://localhost:8000
-  (или используйте расширение Live Server в VS Code).
+Сайт: index.html + ielts-data.js (задания) + ielts-ru.js (русский перевод описаний).
+Аккаунты и синхронизация: api/app.js (Vercel Function + Postgres/Neon, переменная DATABASE_URL).
+Без сервера сайт тоже работает: прогресс хранится в браузере.
 
-Публикация: загрузите папку целиком (вместе с media/) на GitHub Pages,
-Netlify Drop, Cloudflare Pages или Vercel.
+Локально: «python -m http.server 8000» в этой папке → http://localhost:8000
+(запись голоса в Speaking работает только по http(s)).
 
 Файлы:
   index.html     – сайт (HTML + CSS + JS в одном файле)
-  ielts-data.js  – все задания, ключи, скрипты и тексты
-  media/         – фон главной (видео и картинка)
+  ielts-data.js  – все задания, ключи, скрипты и тексты (на английском)
+  ielts-ru.js    – русская версия описаний, советов и раздела «Об экзамене»;
+                   экзаменационные материалы намеренно оставлены на английском
+  media/         – фон и логотип
   src/, build.py, lighten.py – исходники; пересборка: python3 build.py

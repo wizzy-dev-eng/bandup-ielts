@@ -1,4 +1,4 @@
-/* BandUp – IELTS practice data (window.IELTS_DATA).
+/* lynx. – IELTS practice data (window.IELTS_DATA).
    Generated from the research project "IELTS as a Way to Assess English Proficiency: How to Prepare for It"
    (Kurochkin Yaroslav, 9A, Ukhta Technical Lyceum named after G.V. Rassokhin, 2027). Edit the texts here; the site reads everything from this object.
    Inline markup in strings: **bold**, __italic__, {{n}} = answer gap for question n. */

@@ -7,7 +7,7 @@ function heroHtml(entering) {
     ? `<button class="chip hex" style="left:${c.x}%;top:${c.y}%;--i:${c.i}" data-calc data-i18n-label="hero.chipBand" aria-label="${esc(t('hero.chipBand'))}">9.0</button>`
     : `<a class="chip lv-${c.k}" style="left:${c.x}%;top:${c.y}%;--i:${c.i}" href="#/practice?level=${c.k}" aria-label="${esc(LEVEL[c.k].name)} – ${esc(LEVEL[c.k].label)}">${c.k}</a>`;
   return `<section class="hero${entering ? ' entering' : ''}" aria-labelledby="heroTitle">
-  <div class="plate" aria-hidden="true">${stillImg('still')}</div>
+  <div class="plate" aria-hidden="true"></div>
   <div class="chips">${CHIPS.map(chip).join('')}</div>
   <div class="hero-inner">
     <span class="glass-pill rise" style="--i:1">${ic('bolt')} ${T('hero.pill')}</span>
@@ -20,24 +20,6 @@ function heroHtml(entering) {
       <text><textPath href="#arcL" startOffset="50%" text-anchor="middle">${esc(t('hero.scroll1'))}</textPath></text><text><textPath href="#arcR" startOffset="50%" text-anchor="middle">${esc(t('hero.scroll2'))}</textPath></text></svg>
     <span class="mouse"></span></button>
 </section>`;
-}
-function mountVideo(hero) {
-  if (reduced()) return;
-  const plate = $('.plate', hero);
-  const v = document.createElement('video');
-  Object.assign(v, { muted: true, loop: true, autoplay: true, playsInline: true, preload: 'auto' });
-  v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true');
-  v.innerHTML = `<source src="${esc(MEDIA.video.local)}" type="video/mp4"><source src="${esc(MEDIA.video.remote)}" type="video/mp4">`;
-  const ready = () => v.classList.add('ready');
-  v.addEventListener('loadeddata', ready, { once: true }); v.addEventListener('canplay', ready, { once: true });
-  plate.appendChild(v);
-  const tryPlay = () => { const p = v.play(); if (p && p.catch) p.catch(() => { }); };
-  let visible = true;
-  const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible && !document.hidden) tryPlay(); else v.pause(); }, { threshold: 0.05 });
-  io.observe(hero);
-  const vis = () => { if (document.hidden) v.pause(); else if (visible) tryPlay(); };
-  document.addEventListener('visibilitychange', vis);
-  onCleanup(() => { io.disconnect(); document.removeEventListener('visibilitychange', vis); v.pause(); v.removeAttribute('src'); $$('source', v).forEach(s => s.remove()); v.load(); });
 }
 route(/^\/$/, (v) => {
   const entering = !heroPlayedOnce && !reduced(); heroPlayedOnce = true;
@@ -53,16 +35,16 @@ route(/^\/$/, (v) => {
   <section class="sec" aria-labelledby="hFa"><div class="sec-head"><span class="glass-pill">IELTS</span><h2 class="sec-title display" id="hFa"><span class="grad" data-i18n="home.facts">${esc(t('home.facts'))}</span></h2></div>
     <div class="grid g3">${facts.map(f => `<div class="glass stat"><div class="k grad">${esc(f.k)}</div><div class="v">${esc(f.v)}</div></div>`).join('')}</div></section>
   <section class="sec"><div class="grid g3">
-    <div class="glass card glow cta-card lv-A"><span class="kicker">Diagnostic</span><h3>${T('home.diagnostic')}</h3><p>${esc(D.variants.find(x => x.id === 'diagnostic').desc)}</p><a class="pill pill-white pill-sm" href="#/variant/diagnostic">${T('variants.start')} ${ic('arrow')}</a></div>
+    <div class="glass card glow cta-card lv-A"><span class="kicker">${esc(tr('Diagnostic', 'Диагностика'))}</span><h3>${T('home.diagnostic')}</h3><p>${esc(D.variants.find(x => x.id === 'diagnostic').desc)}</p><a class="pill pill-white pill-sm" href="#/variant/diagnostic">${T('variants.start')} ${ic('arrow')}</a></div>
     <div class="glass card glow cta-card lv-B"><span class="kicker">0 – 9</span><h3>${T('home.calc')}</h3><p>${esc(D.exam.rounding.rule.split('.')[0])}.</p><button class="pill pill-white pill-sm" data-calc>${ic('calc')} ${T('calc.title')}</button></div>
-    <div class="glass card glow cta-card lv-C"><span class="kicker">Quiz</span><h3>${T('home.quiz')}</h3><p>${esc(D.drills.quiz.intro)}</p><a class="pill pill-white pill-sm" href="#/drill/quiz">${T('quiz.title')} ${ic('arrow')}</a></div>
+    <div class="glass card glow cta-card lv-C"><span class="kicker">${esc(tr('Quiz', 'Викторина'))}</span><h3>${T('home.quiz')}</h3><p>${esc(D.drills.quiz.intro)}</p><a class="pill pill-white pill-sm" href="#/drill/quiz">${T('quiz.title')} ${ic('arrow')}</a></div>
   </div></section></div>`;
   const hero = $('.hero', v);
-  mountVideo(hero);
+  Globe.setMode('hero', $('.plate', hero));
   $$('[data-calc]', v).forEach(b => b.addEventListener('click', openCalc));
   $('#scrollHint', v).addEventListener('click', () => $('#homeStart').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth' }));
   if (entering) setTimeout(() => hero.classList.remove('entering'), 2400);
   const offLang = on('lang', () => { $$('textPath', hero)[0].textContent = t('hero.scroll1'); $$('textPath', hero)[1].textContent = t('hero.scroll2'); });
   onCleanup(offLang);
-  return { title: lang === 'ru' ? 'Подготовка к IELTS' : 'IELTS preparation', nav: 'home' };
+  return { title: lang === 'ru' ? 'Подготовка к IELTS' : 'IELTS preparation', nav: 'home', relang: true };
 });

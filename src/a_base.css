@@ -115,3 +115,5 @@ a.card{display:block;text-decoration:none;transition:background .25s,border-colo
 a.card:hover,button.card:hover{background:var(--glass-2);border-color:var(--line-2);transform:translateY(-2px)}
 .lightline{position:relative;height:1px;margin:28px 0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35) 50%,transparent)}
 .lightline i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff,0 0 22px var(--lilac)}
+/* Poppins has no Cyrillic: in Russian use Inter for body text so glyphs never mix */
+html[lang=ru]{--body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}

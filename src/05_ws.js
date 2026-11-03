@@ -89,7 +89,7 @@ function writingPlayer(task, { mode = 'practice', embedded = false, save = true,
   const parts = task.parts;
   let finished = false, lastRes = null, timer = null, startT = Date.now(), started = false;
   const dk = p => p.draftKey || `${task.id}:${p.id}`;
-  const short = p => p.short || (p.id === 't2' ? 'Task 2' : p.id === 't1gt' ? 'Task 1 · GT' : 'Task 1');
+  const short = p => p.short || (lang === 'ru' ? (p.id === 't2' ? 'Задание 2' : p.id === 't1gt' ? 'Задание 1 · GT' : 'Задание 1') : (p.id === 't2' ? 'Task 2' : p.id === 't1gt' ? 'Task 1 · GT' : 'Task 1'));
   const help = p => {
     const out = [];
     if (p.plan) out.push([ic('map'), T('writing.plan'), tblHtml(p.plan)]);
@@ -120,7 +120,7 @@ function writingPlayer(task, { mode = 'practice', embedded = false, save = true,
     const n = countWords(s.ta.value), min = s.p.minWords;
     $('[data-wc]', s.sec).textContent = n;
     const bar = $('.wbar', s.sec); bar.classList.toggle('done', n >= min); $('i', bar).style.width = Math.min(100, n / min * 100) + '%';
-    $('[data-wmsg]', s.sec).innerHTML = n >= min ? `<span class="ok">✓ ${esc(t('writing.ok'))}</span>` : n ? esc(t('writing.short', { n: min })) : '';
+    $('[data-wmsg]', s.sec).innerHTML = n >= min ? `<span class="ok">${ic('check')}${esc(t('writing.ok'))}</span>` : n ? esc(t('writing.short', { n: min })) : '';
   };
   const begin = () => { if (started) return; started = true; startT = Date.now(); if (timer && !timer.started) timer.start(); };
   parts.forEach(p => {
@@ -150,7 +150,7 @@ function writingPlayer(task, { mode = 'practice', embedded = false, save = true,
     lastRes = { kind: 'W', taskId: task.id, mode, score: met, total: parts.length, percent: pct, seconds, extra: { words, selfCheck: ck, selfTotal: cls.length } };
     $$('[data-help]', el).forEach(h => h.hidden = false); $$('[data-act=model]', el).forEach(b => b.hidden = false);
     $('[data-act=finish]', el).hidden = true; $('[data-act=again]', el).hidden = exam;
-    $('[data-res]', el).innerHTML = `<div class="glass score-card" role="status">${ring(pct)}<div class="txt"><div class="kicker">${esc(ru ? 'Итог' : 'Summary')}</div><div class="big-num">${met} / ${parts.length}</div><p>${parts.map(p => `${esc(short(p))}: <strong>${words[p.id]}</strong> / ${p.minWords} ${words[p.id] >= p.minWords ? '✓' : '✗'}`).join(' · ')}</p><p>${T('writing.checklist')}: ${ck} / ${cls.length} · ${fmt(seconds)}</p><p class="faint">${esc(ru ? 'Письмо не проверяется автоматически: сравни свой текст с образцом и пройди самопроверку по критериям.' : 'Writing is not marked automatically: compare your text with the model answer and go through the self-check.')}</p></div></div>`;
+    $('[data-res]', el).innerHTML = `<div class="glass score-card" role="status">${ring(pct)}<div class="txt"><div class="kicker">${esc(ru ? 'Итог' : 'Summary')}</div><div class="big-num">${met} / ${parts.length}</div><p>${parts.map(p => `${esc(short(p))}: <strong>${words[p.id]}</strong> / ${p.minWords} ${words[p.id] >= p.minWords ? `<span class="res-st ok">${ic('check')}</span>` : `<span class="res-st bad">${ic('x')}</span>`}`).join(' · ')}</p><p>${T('writing.checklist')}: ${ck} / ${cls.length} · ${fmt(seconds)}</p><p class="faint">${esc(ru ? 'Письмо не проверяется автоматически: сравни свой текст с образцом и пройди самопроверку по критериям.' : 'Writing is not marked automatically: compare your text with the model answer and go through the self-check.')}</p></div></div>`;
     if (save && !silent) Progress.add(lastRes);
     if (!silent) { announce(ru ? 'Готово' : 'Finished'); if (!embedded) $('[data-res]', el).scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'center' }); }
     return lastRes;
@@ -325,12 +325,12 @@ function spTaskFrom(it) {
   const B = D.banks;
   const topics = (it.p1 || []).map(n => B.speakingPart1.find(x => x.title === n)).filter(Boolean);
   const c = B.speakingPart2.find(x => x.id === it.card) || B.speakingPart2[0];
-  const tgt = c.level === 'C' ? 110 : c.level === 'B' ? 90 : 60;
+  const tgt = c.level === 'C' ? 110 : c.level === 'B' ? 90 : 60, ru = lang === 'ru';
   const sp = {
-    part2: { label: 'Part 2: the long turn', card: { topic: c.topic, say: c.say, points: c.points, explain: c.explain }, note: 'You have **one minute** to prepare and can make notes. Then speak for **one to two minutes**.', prepSeconds: 60, speakSeconds: 120, targetSeconds: tgt },
-    part3: { label: 'Part 3: discussion', questions: c.part3 }
+    part2: { label: ru ? 'Часть 2: монолог' : 'Part 2: the long turn', card: { topic: c.topic, say: c.say, points: c.points, explain: c.explain }, note: ru ? 'На подготовку даётся **одна минута**, можно делать заметки. Затем говорите **от одной до двух минут**.' : 'You have **one minute** to prepare and can make notes. Then speak for **one to two minutes**.', prepSeconds: 60, speakSeconds: 120, targetSeconds: tgt },
+    part3: { label: ru ? 'Часть 3: обсуждение' : 'Part 3: discussion', questions: c.part3 }
   };
-  if (topics.length) sp.part1 = { label: 'Part 1: introduction and interview', instructions: 'Answer each question in **2–4 sentences**: answer + reason + example.', topics };
+  if (topics.length) sp.part1 = { label: ru ? 'Часть 1: знакомство и интервью' : 'Part 1: introduction and interview', instructions: ru ? 'Отвечайте на каждый вопрос **2–4 предложениями**: ответ + причина + пример.' : 'Answer each question in **2–4 sentences**: answer + reason + example.', topics };
   return { id: 'sp:' + c.id, level: c.level, skill: 'S', code: 'S', title: c.topic.replace(/\.$/, ''), minutes: 14, speaking: { part1: sp.part1, part2: sp.part2, part3: sp.part3 } };
 }
 function randomSpItem(level, rng = Math.random, p1n = 2) {

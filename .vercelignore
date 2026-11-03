@@ -1,0 +1,5 @@
+src/
+*.py
+__pycache__/
+README.txt
+.env*

@@ -1,10 +1,22 @@
 /* ---------- practice library ---------- */
+const ruPl = (n, f) => { const a = n % 10, b = n % 100; return f[a === 1 && b !== 11 ? 0 : a >= 2 && a <= 4 && (b < 10 || b >= 20) ? 1 : 2]; };
+const cnt = (n, en, ru) => `${n} ${lang === 'ru' ? ruPl(n, ru) : (n === 1 ? en[0] : en[1])}`;
+const tasksN = n => cnt(n, ['task', 'tasks'], ['задание', 'задания', 'заданий']);
 function taskMetaPills(tk) {
-  const n = tk.questionsCount ? `${tk.questionsCount} ${lang === 'ru' ? 'вопр.' : 'questions'}` : tk.parts ? `${tk.parts.length} ${lang === 'ru' ? 'задания' : 'tasks'}` : `${['part1', 'part2', 'part3'].filter(p => tk.speaking[p]).length} ${lang === 'ru' ? 'части' : 'parts'}`;
+  const n = tk.questionsCount ? cnt(tk.questionsCount, ['question', 'questions'], ['вопрос', 'вопроса', 'вопросов']) : tk.parts ? cnt(tk.parts.length, ['task', 'tasks'], ['задание', 'задания', 'заданий']) : cnt(['part1', 'part2', 'part3'].filter(p => tk.speaking[p]).length, ['part', 'parts'], ['часть', 'части', 'частей']);
   const tm = tk.minutes ? `${tk.minutes} ${t('common.min')}` : t('common.noLimit');
   const best = Progress.best(tk.id);
-  const b = best ? (best.kind === 'LR' ? `<span class="lp ok">${ic('check')} ${t('progress.best')} ${best.score}/${best.total}</span>` : `<span class="lp ok">${ic('check')} ${lang === 'ru' ? 'Выполнено' : 'Done'}</span>`) : '';
-  return `<span class="lp">${esc(n)}</span><span class="lp">${ic('clock')} ${esc(tm)}</span>${b}`;
+  const b = best ? (best.kind === 'LR' ? `<span class="tag ok">${ic('check')} ${t('progress.best')} ${best.score}/${best.total}</span>` : `<span class="tag ok">${ic('check')} ${lang === 'ru' ? 'Выполнено' : 'Done'}</span>`) : '';
+  return `<span class="tag">${esc(n)}</span><span class="tag">${ic('clock')} ${esc(tm)}</span>${b}`;
+}
+function taskCard(x) {
+  return `<a class="glass card glow task-card lv-${x.level}" href="#/practice/${x.id}"><div class="top"><span class="code">${esc(x.code)}</span><span class="em" aria-hidden="true">${SKILL[x.skill].icon}</span></div>
+  <div class="tc-body"><h3>${esc(x.title)}</h3><p class="part">${esc(x.part)}</p></div>
+  <div class="tags"><span class="tag lv"><i></i>${esc(t('level.' + x.level))}</span><span class="tag">${ic(SK_IC[x.skill])} ${esc(t('skill.' + x.skill))}</span>${taskMetaPills(x)}</div></a>`;
+}
+function drillCard(id, lv, code, icon, href, title, desc, tags) {
+  return `<a class="glass card glow task-card lv-${lv}" href="${href}"><div class="top"><span class="code">${esc(code)}</span><span class="em" aria-hidden="true">${ic(icon)}</span></div>
+  <div class="tc-body"><h3>${title}</h3><p class="part">${esc(desc)}</p></div><div class="tags">${tags.map(x => `<span class="tag">${x}</span>`).join('')}</div></a>`;
 }
 route(/^\/practice$/, (v, _, q) => {
   let lv = q.get('level') || 'all', sk = q.get('skill') || 'all';
@@ -15,15 +27,15 @@ route(/^\/practice$/, (v, _, q) => {
   <div id="fsk-panel" role="tabpanel" aria-label="Tasks"><div class="grid gauto" id="taskGrid"></div></div>
   <section class="sec"><div class="sec-head"><span class="glass-pill">${ic('bolt')} ${T('practice.drills')}</span></div>
    <div class="grid g3">
-    <a class="glass card glow task-card lv-A" href="#/drill/tfng"><div class="top"><span class="code">T/F/NG</span><span class="em">${ic('book')}</span></div><h3>${T('drill.tfng')}</h3><p class="part">${esc(plain(D.drills.tfng.rule))}</p><div class="meta"><span class="lp">${D.drills.tfng.items.length}</span></div></a>
-    <a class="glass card glow task-card lv-B" href="#/drill/dictation"><div class="top"><span class="code">A–Z 0–9</span><span class="em">${ic('headphones')}</span></div><h3>${T('drill.dictation')}</h3><p class="part">${esc(D.drills.dictation.intro)}</p><div class="meta"><span class="lp">${D.drills.dictation.kinds.length} kinds</span></div></a>
-    <a class="glass card glow task-card lv-C" href="#/drill/quiz"><div class="top"><span class="code">?</span><span class="em">${ic('bulb')}</span></div><h3>${T('quiz.title')}</h3><p class="part">${esc(D.drills.quiz.intro)}</p><div class="meta"><span class="lp">${D.drills.quiz.items.length}</span></div></a>
+    ${drillCard('tfng', 'A', 'T/F/NG', 'book', '#/drill/tfng', T('drill.tfng'), plain(D.drills.tfng.rule), [`${ic('book')} ${esc(t('skill.R'))}`, esc(cnt(D.drills.tfng.items.length, ['statement', 'statements'], ['утверждение', 'утверждения', 'утверждений']))])}
+    ${drillCard('dictation', 'B', 'A–Z 0–9', 'headphones', '#/drill/dictation', T('drill.dictation'), D.drills.dictation.intro, [`${ic('headphones')} ${esc(t('skill.L'))}`, esc(cnt(D.drills.dictation.kinds.length, ['kind', 'kinds'], ['вид', 'вида', 'видов']))])}
+    ${drillCard('quiz', 'C', '?', 'bulb', '#/drill/quiz', T('quiz.title'), D.drills.quiz.intro, [`${ic('bulb')} IELTS`, esc(cnt(D.drills.quiz.items.length, ['question', 'questions'], ['вопрос', 'вопроса', 'вопросов']))])}
    </div></section>
   <details class="disc"><summary>${lang === 'ru' ? 'Как работать с заданиями' : 'How to work with the tasks'}</summary><div class="dc"><ul class="dash">${D.collection.howTo.map(h => `<li>${md(h)}</li>`).join('')}</ul></div></details></div>`;
   const grid = $('#taskGrid', v);
   const draw = () => {
     const list = D.tasks.filter(x => (lv === 'all' || x.level === lv) && (sk === 'all' || x.skill === sk));
-    grid.innerHTML = list.map(x => `<a class="glass card glow task-card lv-${x.level}" href="#/practice/${x.id}"><div class="top"><span class="code">${esc(x.code)}</span><span class="em" aria-hidden="true">${SKILL[x.skill].icon}</span></div><div class="row">${levelPill(x.level)}${skillPill(x.skill)}</div><h3>${esc(x.title)}</h3><p class="part">${esc(x.part)}</p><div class="meta">${taskMetaPills(x)}</div></a>`).join('') || `<div class="glass empty"><p>—</p></div>`;
+    grid.innerHTML = list.map(taskCard).join('') || `<div class="glass empty"><p>—</p></div>`;
     const qq = new URLSearchParams(); if (lv !== 'all') qq.set('level', lv); if (sk !== 'all') qq.set('skill', sk); setQuery(qq);
   };
   bindTabs($('[data-tabs=flv]', v), id => { lv = id; draw(); });

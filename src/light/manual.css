@@ -21,3 +21,25 @@
 .theme-btn .i-sun{display:none}
 [data-theme=light] .theme-btn .i-sun{display:inline-block}
 [data-theme=light] .theme-btn .i-moon{display:none}
+/* liquid-glass indicators: white glass thumb on a soft track */
+[data-theme=light] .nav-ind,[data-theme=light] .seg-ind,[data-theme=light] .tab-ind{background-image:linear-gradient(180deg,#fff,rgba(255,255,255,.82) 60%,rgba(255,255,255,.94));border:1px solid rgba(255,255,255,.95);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -1px 1px rgba(104,76,214,.08),inset 0 0 10px rgba(104,76,214,.06),0 1px 2px rgba(40,30,90,.12),0 6px 16px -6px rgba(104,76,214,.38)}
+[data-theme=light] .nav-ind::before,[data-theme=light] .seg-ind::before,[data-theme=light] .tab-ind::before{background-image:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,0))}
+[data-theme=light] .nav-links{background-color:rgba(255,255,255,.55);box-shadow:inset 0 1px 2px rgba(40,30,90,.06),0 10px 30px -14px rgba(40,30,90,.18)}
+[data-theme=light] .nav-links a[aria-current="page"],[data-theme=light] .nav-links a.active{color:var(--ink)}
+/* search */
+[data-theme=light] .search-pill{background-image:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.78));border-color:rgba(24,20,48,.09);box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(40,30,90,.06),0 12px 30px -16px rgba(40,30,90,.3)}
+[data-theme=light] .search-pill:hover{border-color:rgba(24,20,48,.16)}
+[data-theme=light] .search-pill:focus-within{border-color:rgba(104,76,214,.45);box-shadow:inset 0 1px 0 #fff,0 0 0 4px rgba(104,76,214,.12),0 14px 32px -16px rgba(40,30,90,.35)}
+[data-theme=light] .search-pop{background-color:rgba(255,255,255,.97);border-color:rgba(24,20,48,.09);box-shadow:0 24px 60px -18px rgba(40,30,90,.35)}
+/* settings sheet */
+[data-theme=light] .setsheet-bg{background-color:rgba(24,20,48,.16)}
+[data-theme=light] .setsheet-panel{background-color:rgba(255,255,255,.9);border-color:rgba(24,20,48,.08);box-shadow:0 -24px 70px rgba(40,30,90,.18),inset 0 1px 0 #fff}
+[data-theme=light] [data-tip]::after{border-color:rgba(24,20,48,.1);box-shadow:0 10px 24px -8px rgba(40,30,90,.3)}
+/* power saving, light */
+html[data-theme=light][data-eco] .glass,html[data-theme=light][data-eco] .pill-glass,html[data-theme=light][data-eco] .glass-pill,html[data-theme=light][data-eco] .search-pill,html[data-theme=light][data-eco] .lang-menu,html[data-theme=light][data-eco] .search-pop{background-color:rgba(255,255,255,.96);background-image:none}
+html[data-theme=light][data-eco] .nav.scrolled{background:rgba(246,245,251,.97)}
+html[data-theme=light][data-eco] .setsheet-panel{background:#fff}
+html[data-theme=light][data-eco] .nav-ind,html[data-theme=light][data-eco] .seg-ind,html[data-theme=light][data-eco] .tab-ind{box-shadow:0 1px 3px rgba(40,30,90,.16)}
+[data-theme=light] .switch{background-color:rgba(24,20,48,.12)}
+[data-theme=light] .switch i{background:#fff;box-shadow:0 1px 2px rgba(40,30,90,.2),0 3px 8px rgba(40,30,90,.18)}

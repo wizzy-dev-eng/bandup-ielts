@@ -170,11 +170,11 @@ route(/^\/builder$/, (v, _, q) => {
   <section class="sec"><div class="sec-head"><h2 class="sec-title display"><span class="grad" data-i18n="builder.saved">${esc(t('builder.saved'))}</span></h2></div><div data-saved></div></section></div>`;
   const form = $('[data-form]', v), sbox = $('[data-setbox]', v);
   const defName = () => `${D.meta.brand} · ${st.levels.join('+') || '–'} · ${st.skills.join('') || (ru ? 'тренажёры' : 'drills')}`;
-  const cur = () => ({ id: st.id, name: st.name || defName(), mode: st.mode, items: st.items, created: st.created || Date.now() });
+  const cur = () => { const prev = st.id ? Sets.get(st.id) : null; return { id: st.id, name: st.name || defName(), mode: st.mode, items: st.items, created: st.created || Date.now(), ...(prev && prev.public ? { public: true } : {}) }; };
   const drawSet = () => {
     if (!st.items.length) { sbox.innerHTML = `<div class="empty"><div class="em em-lg" aria-hidden="true">${ic('puzzle')}</div><p>${esc(ru ? 'Выбери уровни и навыки и нажми «Собрать набор». Задания Writing и Speaking берутся случайно из банков.' : 'Choose levels and skills and press “Generate set”. Writing and Speaking prompts are picked at random from the banks.')}</p></div>`; return; }
     const infos = st.items.map(itemInfo), mins = infos.reduce((a, f) => a + (f.minutes || 0), 0);
-    sbox.innerHTML = `<div class="row between" style="align-items:flex-start"><div><div class="kicker">${st.mode === 'exam' ? T('task.exam') : T('task.practice')}${st.id ? ' · ' + esc(ru ? 'сохранён' : 'saved') : ''}</div><h2 class="grp-title" style="font-size:21px;margin-top:6px">${esc(st.name || defName())}</h2><p class="faint" style="margin:4px 0 0">${st.items.length} ${T('variants.tasks')} · ≈ ${mins} ${T('common.min')}</p></div>
+    sbox.innerHTML = `<div class="row between" style="align-items:flex-start"><div><div class="kicker">${st.mode === 'exam' ? T('task.exam') : T('task.practice')}${st.id ? ' · ' + esc(ru ? 'сохранён' : 'saved') : ''}</div><h2 class="grp-title" style="font-size:21px;margin-top:6px">${esc(st.name || defName())}</h2><p class="faint" style="margin:4px 0 0">${tasksN(st.items.length)} · ≈ ${mins} ${T('common.min')}</p></div>
       <button type="button" class="pill pill-sm pill-glass" data-a="rerollAll">${ic('dice')} ${T('builder.reroll')}</button></div>
       <div style="margin-top:18px" role="list">${infos.map((f, i) => `<div class="bitem" role="listitem" data-i="${i}"><span class="em" aria-hidden="true">${f.em}</span><div class="bt"><b>${esc(f.title)}</b><span>${esc(f.sub)}</span></div>${f.drill ? '<span class="lp">' + ic('bolt') + '</span>' : levelPill(f.level)}<div class="acts">
         <button type="button" class="icon-btn" data-a="up" aria-label="${esc(ru ? 'Выше' : 'Move up')}" title="${esc(ru ? 'Выше' : 'Move up')}"${i ? '' : ' disabled'}>${ic('up')}</button><button type="button" class="icon-btn" data-a="down" aria-label="${esc(ru ? 'Ниже' : 'Move down')}" title="${esc(ru ? 'Ниже' : 'Move down')}"${i < infos.length - 1 ? '' : ' disabled'}>${ic('down')}</button><button type="button" class="icon-btn" data-a="reroll" aria-label="${esc(t('builder.reroll'))}" title="${esc(t('builder.reroll'))}"${f.fixed ? ' disabled' : ''}>${ic('dice')}</button><button type="button" class="icon-btn" data-a="rm" aria-label="${esc(t('builder.delete'))}" title="${esc(t('builder.delete'))}">${ic('trash')}</button></div></div>`).join('')}</div>
@@ -182,7 +182,7 @@ route(/^\/builder$/, (v, _, q) => {
   };
   const drawSaved = () => {
     const all = Sets.all(), el = $('[data-saved]', v);
-    el.innerHTML = all.length ? `<div class="grid g3">${all.map(s => `<article class="glass card set-card"><div class="kicker">${s.mode === 'exam' ? T('task.exam') : T('task.practice')} · ${s.items.length} ${T('variants.tasks')}</div><h3 style="font-size:17px;margin:8px 0 4px">${esc(s.name)}</h3><p class="faint" style="margin:0 0 14px;font-size:13px">${new Date(s.created || Date.now()).toLocaleDateString(ru ? 'ru-RU' : 'en-GB')}</p><div class="row"><a class="pill pill-sm pill-white" href="#/set/${esc(s.id)}">${ic('play')} ${T('variants.start')}</a><a class="pill pill-sm pill-outline" href="#/builder?edit=${esc(s.id)}">${T('builder.open')}</a><button type="button" class="icon-btn" data-share="${esc(s.id)}" aria-label="${esc(t('builder.share'))}" title="${esc(t('builder.share'))}">${ic('link')}</button><button type="button" class="icon-btn" data-del="${esc(s.id)}" aria-label="${esc(t('builder.delete'))}" title="${esc(t('builder.delete'))}">${ic('trash')}</button></div></article>`).join('')}</div>` : `<p class="muted">${esc(ru ? 'Пока нет сохранённых наборов.' : 'No saved sets yet.')}</p>`;
+    el.innerHTML = all.length ? `<div class="grid g3">${all.map(s => `<article class="glass card set-card"><div class="kicker">${s.mode === 'exam' ? T('task.exam') : T('task.practice')} · ${tasksN(s.items.length)}</div><h3 style="font-size:17px;margin:8px 0 4px">${esc(s.name)}</h3><p class="faint" style="margin:0 0 14px;font-size:13px">${new Date(s.created || Date.now()).toLocaleDateString(ru ? 'ru-RU' : 'en-GB')}</p><div class="row set-acts"><a class="pill pill-sm pill-white" href="#/set/${esc(s.id)}">${ic('play')} ${T('variants.start')}</a><a class="pill pill-sm pill-outline" href="#/builder?edit=${esc(s.id)}">${T('builder.open')}</a></div><div class="set-foot">${Auth.user ? `<button type="button" class="pub-tg" data-pub="${esc(s.id)}" aria-pressed="${!!s.public}" aria-label="${esc(s.public ? tr('Public: shown in your profile', 'Публичный: виден в профиле') : tr('Private: show in my profile', 'Личный: показать в профиле'))}" data-tip="${esc(s.public ? tr('Hide from profile', 'Скрыть из профиля') : tr('Show in profile', 'Показать в профиле'))}">${ic(s.public ? 'eye' : 'eyeOff')}<span>${esc(s.public ? tr('Public', 'Публичный') : tr('Private', 'Личный'))}</span></button>` : ''}<span class="sp"></span><button type="button" class="icon-btn" data-share="${esc(s.id)}" aria-label="${esc(t('builder.share'))}" title="${esc(t('builder.share'))}">${ic('link')}</button><button type="button" class="icon-btn" data-del="${esc(s.id)}" aria-label="${esc(t('builder.delete'))}" title="${esc(t('builder.delete'))}">${ic('trash')}</button></div></article>`).join('')}</div>` : `<p class="muted">${esc(ru ? 'Пока нет сохранённых наборов.' : 'No saved sets yet.')}</p>`;
   };
   form.addEventListener('change', () => { st.levels = $$('[name=lv]:checked', form).map(x => x.value); st.skills = $$('[name=sk]:checked', form).map(x => x.value); st.extras = $$('[name=ex]:checked', form).map(x => x.value); });
   $('[name=name]', form).addEventListener('input', e => { st.name = e.target.value; const h = $('.grp-title', sbox); if (h) h.textContent = st.name || defName(); });
@@ -191,7 +191,7 @@ route(/^\/builder$/, (v, _, q) => {
     e.preventDefault(); form.dispatchEvent(new Event('change'));
     const err = $('[data-err]', form);
     if (!st.levels.length || (!st.skills.length && !st.extras.length)) { err.textContent = t('builder.empty'); return; }
-    err.textContent = ''; st.items = genItems(st); st.id = null; st.created = Date.now(); drawSet(); announce(`${st.items.length} ${t('variants.tasks')}`);
+    err.textContent = ''; st.items = genItems(st); st.id = null; st.created = Date.now(); drawSet(); announce(`${tasksN(st.items.length)}`);
     if (matchMedia('(max-width:900px)').matches) sbox.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
   });
   sbox.addEventListener('click', e => {
@@ -209,9 +209,10 @@ route(/^\/builder$/, (v, _, q) => {
   });
   $('[data-saved]', v).addEventListener('click', async e => {
     const d = e.target.closest('[data-del]'), sh = e.target.closest('[data-share]');
+    const pb = e.target.closest('[data-pub]'); if (pb) { const s = Sets.get(pb.dataset.pub); if (s) { s.public = !s.public; Sets.save(s); drawSaved(); toast(s.public ? tr('The set is now public in your profile', 'Набор теперь виден в профиле') : tr('The set is private again', 'Набор снова личный')); $(`[data-pub="${s.id}"]`, v)?.focus(); } return; }
     if (sh) { const s = Sets.get(sh.dataset.share); if (s) shareSet(s); }
     if (d) { if (!(await confirmDlg(ru ? 'Удалить набор?' : 'Delete this set?'))) return; Sets.del(d.dataset.del); if (st.id === d.dataset.del) st.id = null; drawSaved(); drawSet(); }
   });
   drawSet(); drawSaved();
-  return { title: t('builder.title'), nav: 'builder', relang: true };
+  return { title: t('builder.title'), nav: 'builder', relang: true, auth: true };
 });
