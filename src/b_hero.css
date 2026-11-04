@@ -34,7 +34,7 @@
 .hero-title .ln span{display:inline}
 .hero-sub{max-width:640px;margin:0 0 32px;color:var(--muted);font-size:clamp(14px,1.25vw,17px);line-height:1.6}
 .hero-sub .ln{display:block}
-@media (max-width:767px){.hero-title .ln{display:inline}.hero-title .ln+.ln::before{content:' '}.hero-sub .ln{display:inline}.hero-sub .ln+.ln::before{content:' '}}
+@media (max-width:767px){.hero-title .ln{display:inline}.hero-sub .ln{display:inline}}
 .cta{min-height:52px;padding:0 28px;font-size:15px}
 .cta .ic{transition:transform .25s}.cta:hover .ic{transform:translateX(3px)}
 .scroll-hint{position:absolute;z-index:3;left:50%;bottom:14px;transform:translateX(-50%);width:170px;height:76px;color:var(--faint)}

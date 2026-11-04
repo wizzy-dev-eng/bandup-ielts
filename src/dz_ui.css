@@ -9,7 +9,7 @@
 @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,14px) scale(1.12)}}
 
 /* globe canvas behind everything */
-#globe{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;display:block}
+#globe{position:fixed;left:0;top:0;width:100vw;height:100vh;height:100lvh;z-index:-1;pointer-events:none;display:block}
 .hero{background:transparent}
 
 /* brand */

@@ -137,15 +137,20 @@ function announce(msg) { const el = $('#live'); if (!el) return; el.textContent 
 function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2500); announce(msg); }
 
 /* ---------- dialogs ---------- */
-function openDialog({ title, body, actions = '', wide = false, onOpen, onClose, titleKey }) {
+function openDialog({ title, body, actions = '', wide = false, onOpen, onClose, titleKey, cls = '' }) {
   const opener = document.activeElement;
   const dlg = document.createElement('dialog');
-  dlg.className = 'dlg' + (wide ? ' wide' : '');
+  dlg.className = 'dlg' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '');
   const hid = uid('dh');
   dlg.setAttribute('aria-labelledby', hid);
   dlg.innerHTML = `<div class="dlg-in"><div class="dlg-head"><h2 id="${hid}" class="display">${titleKey ? T(titleKey) : esc(title)}</h2><button class="icon-btn" data-close data-i18n-label="nav.close" aria-label="${esc(t('nav.close'))}">${ic('x')}</button></div><div class="dlg-body">${body}</div>${actions ? `<div class="dlg-actions">${actions}</div>` : ''}</div>`;
   document.body.appendChild(dlg);
-  const close = (v) => { if (!dlg.open) return; dlg.close(v); };
+  const close = (v) => {
+    if (!dlg.open || dlg.classList.contains('closing')) return;
+    if (reduced() || (typeof ecoOn === 'function' && ecoOn())) return dlg.close(v);
+    dlg.classList.add('closing'); setTimeout(() => dlg.close(v), 190);
+  };
+  dlg.addEventListener('cancel', e => { e.preventDefault(); close(''); });
   dlg.addEventListener('close', () => { onClose && onClose(dlg.returnValue); dlg.remove(); if (opener && opener.focus && document.contains(opener)) opener.focus(); });
   dlg.addEventListener('click', e => { if (e.target === dlg) close(''); if (e.target.closest('[data-close]')) close(''); });
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');

@@ -11,11 +11,11 @@ function heroHtml(entering) {
   <div class="chips">${CHIPS.map(chip).join('')}</div>
   <div class="hero-inner">
     <span class="glass-pill rise" style="--i:1">${ic('bolt')} ${T('hero.pill')}</span>
-    <h1 class="hero-title display" id="heroTitle" tabindex="-1"><span class="ln rise" style="--i:2"><span class="grad" data-i18n="hero.title1">${esc(t('hero.title1'))}</span></span><span class="ln rise" style="--i:3"><span class="grad" data-i18n="hero.title2">${esc(t('hero.title2'))}</span></span></h1>
-    <p class="hero-sub rise" style="--i:4"><span class="ln" data-i18n="hero.sub1">${esc(t('hero.sub1'))}</span><span class="ln" data-i18n="hero.sub2">${esc(t('hero.sub2'))}</span></p>
+    <h1 class="hero-title display" id="heroTitle" tabindex="-1"><span class="ln rise" style="--i:2"><span class="grad" data-i18n="hero.title1">${esc(t('hero.title1'))}</span></span> <span class="ln rise" style="--i:3"><span class="grad" data-i18n="hero.title2">${esc(t('hero.title2'))}</span></span></h1>
+    <p class="hero-sub rise" style="--i:4"><span class="ln" data-i18n="hero.sub1">${esc(t('hero.sub1'))}</span> <span class="ln" data-i18n="hero.sub2">${esc(t('hero.sub2'))}</span></p>
     <a class="pill pill-white cta rise" style="--i:5" href="#/variant/diagnostic">${T('hero.cta')} ${ic('arrow')}</a>
   </div>
-  <button class="scroll-hint rise" style="--i:11" aria-label="Scroll down" id="scrollHint">
+  <button class="scroll-hint rise" style="--i:11" aria-label="${esc(tr('Scroll down', 'Прокрутить вниз'))}" id="scrollHint">
     <svg viewBox="0 0 170 76" aria-hidden="true"><defs><path id="arcL" d="M 22 62 A 63 63 0 0 1 70 12"/><path id="arcR" d="M 100 12 A 63 63 0 0 1 148 62"/></defs>
       <text><textPath href="#arcL" startOffset="50%" text-anchor="middle">${esc(t('hero.scroll1'))}</textPath></text><text><textPath href="#arcR" startOffset="50%" text-anchor="middle">${esc(t('hero.scroll2'))}</textPath></text></svg>
     <span class="mouse"></span></button>

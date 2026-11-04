@@ -9,14 +9,14 @@ function guidePanel(id) {
     <div class="grid g2" style="margin-top:22px">${E.sections.map(s => `<article class="glass card skill-card"><div class="em" aria-hidden="true">${SKILL[s.skill].icon}</div><h3>${esc(s.title)}</h3><p>${md(s.text)}</p><p style="margin-top:12px"><a class="txt-btn" href="#/practice?skill=${s.skill}">${esc(ru ? 'Тренироваться' : 'Practise')} →</a></p></article>`).join('')}</div>
     <div class="prose" style="margin-top:18px">${paras(E.formatSummary)}</div>`;
   if (id === 'scoring') return `<div class="prose">${paras(E.scoringText)}</div>
-    <div class="grid g2" style="margin-top:18px;align-items:start"><div class="ladder" aria-label="Band scale">${E.bands.map(b => `<div class="${b.band < 4 ? 'lo' : ''} lv-${b.band >= 7 ? 'C' : b.band >= 4 ? 'B' : 'A'}"><b>${b.band}</b><span>${esc(b.label)}</span></div>`).join('')}</div>
+    <div class="grid g2" style="margin-top:18px;align-items:start"><div class="ladder" aria-label="${esc(tr('Band scale', 'Шкала баллов'))}">${E.bands.map(b => `<div class="${b.band < 4 ? 'lo' : ''} lv-${b.band >= 7 ? 'C' : b.band >= 4 ? 'B' : 'A'}"><b>${b.band}</b><span>${esc(b.label)}</span></div>`).join('')}</div>
     <div class="stack"><div class="glass panel"><h3 class="grp-title">${ic('pen')} ${T('skill.W')}</h3><ul class="dash">${E.criteria.writing.map(x => `<li>${md(x)}</li>`).join('')}</ul></div><div class="glass panel"><h3 class="grp-title">${ic('mic')} ${T('skill.S')}</h3><ul class="dash">${E.criteria.speaking.map(x => `<li>${md(x)}</li>`).join('')}</ul></div><p class="note">${md(E.criteria.note)}</p></div></div>
     <section class="glass panel" style="margin-top:22px"><h3 class="grp-title">${ic('calc')} ${T('calc.title')}</h3><p class="instr">${md(E.rounding.rule)}</p>${calcHtml('gcalc')}</section>
     <section class="glass panel" style="margin-top:18px"><h3 class="grp-title">${T('raw.title')}</h3>${rawHtml('graw')}</section>`;
   if (id === 'cefr') {
     let cat = '';
     const segs = E.cefr.rows.map(r => { if (r[0]) cat = r[0][0]; return `<div class="lv-${cat}"><b>${esc(r[1])}</b>${esc(r[2])}</div>`; }).join('');
-    return `<div class="prose">${paras(E.cefr.text)}</div><div class="cefr-bar" role="img" aria-label="CEFR and IELTS bands">${segs}</div>${dataTable(E.cefr)}`;
+    return `<div class="prose">${paras(E.cefr.text)}</div><div class="cefr-bar" role="img" aria-label="${esc(tr('CEFR and IELTS bands', 'Уровни CEFR и баллы IELTS'))}">${segs}</div>${dataTable(E.cefr)}`;
   }
   if (id === 'compare') return `<div class="prose">${paras(E.compare.text)}</div>${dataTable(E.compare, true)}`;
   if (id === 'difficulties') return `<div class="prose">${paras(E.difficulties.intro)}</div>

@@ -2514,38 +2514,94 @@ window.IELTS_DATA = {
    "note": "Average numbers of correct answers (out of 40) needed for a band. The exact conversion changes slightly from one test version to another, so estimates are only a guide.",
    "listening": [
     {
+     "raw": 10,
+     "band": 4
+    },
+    {
+     "raw": 13,
+     "band": 4.5
+    },
+    {
      "raw": 16,
      "band": 5
+    },
+    {
+     "raw": 18,
+     "band": 5.5
     },
     {
      "raw": 23,
      "band": 6
     },
     {
+     "raw": 26,
+     "band": 6.5
+    },
+    {
      "raw": 30,
      "band": 7
     },
     {
+     "raw": 32,
+     "band": 7.5
+    },
+    {
      "raw": 35,
      "band": 8
+    },
+    {
+     "raw": 37,
+     "band": 8.5
+    },
+    {
+     "raw": 39,
+     "band": 9
     }
    ],
    "readingAcademic": [
+    {
+     "raw": 10,
+     "band": 4
+    },
+    {
+     "raw": 13,
+     "band": 4.5
+    },
     {
      "raw": 15,
      "band": 5
     },
     {
+     "raw": 19,
+     "band": 5.5
+    },
+    {
      "raw": 23,
      "band": 6
+    },
+    {
+     "raw": 27,
+     "band": 6.5
     },
     {
      "raw": 30,
      "band": 7
     },
     {
+     "raw": 33,
+     "band": 7.5
+    },
+    {
      "raw": 35,
      "band": 8
+    },
+    {
+     "raw": 37,
+     "band": 8.5
+    },
+    {
+     "raw": 39,
+     "band": 9
     }
    ],
    "readingGeneral": [
@@ -2554,16 +2610,44 @@ window.IELTS_DATA = {
      "band": 4
     },
     {
+     "raw": 19,
+     "band": 4.5
+    },
+    {
      "raw": 23,
      "band": 5
+    },
+    {
+     "raw": 27,
+     "band": 5.5
     },
     {
      "raw": 30,
      "band": 6
     },
     {
-     "raw": 35,
+     "raw": 32,
+     "band": 6.5
+    },
+    {
+     "raw": 34,
      "band": 7
+    },
+    {
+     "raw": 36,
+     "band": 7.5
+    },
+    {
+     "raw": 37,
+     "band": 8
+    },
+    {
+     "raw": 39,
+     "band": 8.5
+    },
+    {
+     "raw": 40,
+     "band": 9
     }
    ]
   },

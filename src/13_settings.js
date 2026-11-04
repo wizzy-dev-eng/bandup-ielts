@@ -2,11 +2,11 @@
 let setSheetEl = null;
 function settingsBody() {
   const v = Settings.v, th = curTheme();
-  const seg = (k, opts, cur) => `<div class="seg" role="group" aria-label="${esc(t('set.' + k))}">${opts.map(([val, html]) => `<button type="button" data-set="${k}" data-val="${val}" aria-pressed="${String(val) === String(cur)}">${html}</button>`).join('')}</div>`;
+  const seg = (k, opts, cur) => `<div class="seg" role="group" aria-label="${esc(t('set.' + k))}">${opts.map(([val, html, lk]) => `<button type="button" data-set="${k}" data-val="${val}" aria-pressed="${String(val) === String(cur)}"${lk ? ` data-i18n-label="${lk}" aria-label="${esc(t(lk))}"` : ''}>${html}</button>`).join('')}</div>`;
   const row = (k, icon, label, ctrl, hint = '') => `<div class="set-row" data-row="${k}"><div class="set-lbl"><span class="set-ic">${ic(icon)}</span><div><b>${T(label)}</b>${hint ? `<p>${T(hint)}</p>` : ''}</div></div><div class="set-ctrl">${ctrl}</div></div>`;
   return `${row('theme', 'palette', 'set.theme', seg('theme', [['dark', `${ic('moon')}${T('set.dark')}`], ['light', `${ic('sun')}${T('set.light')}`]], th))}
   ${row('eco', 'leaf', 'set.eco', `<button type="button" class="switch" role="switch" data-set="eco" aria-checked="${!!v.eco}" aria-label="${esc(t('set.eco'))}"><i></i></button>`, 'set.ecoHint')}
-  ${row('fs', 'type', 'set.fs', seg('fs', [['s', '<span class="fs-s">A</span>'], ['m', '<span class="fs-m">A</span>'], ['l', '<span class="fs-l">A</span>'], ['xl', '<span class="fs-xl">A</span>']], v.fs))}
+  ${row('fs', 'type', 'set.fs', seg('fs', [['s', '<span class="fs-s" aria-hidden="true">A</span>', 'set.fs_s'], ['m', '<span class="fs-m" aria-hidden="true">A</span>', 'set.fs_m'], ['l', '<span class="fs-l" aria-hidden="true">A</span>', 'set.fs_l'], ['xl', '<span class="fs-xl" aria-hidden="true">A</span>', 'set.fs_xl']], v.fs))}
   ${row('fw', 'weight', 'set.fw', seg('fw', [['light', T('set.fwLight')], ['normal', T('set.fwNormal')], ['bold', T('set.fwBold')]], v.fw))}
   ${row('lang', 'globe', 'set.lang', seg('lang', [['en', 'English'], ['ru', 'Русский']], lang))}
   <p class="set-preview">${T('set.preview')}</p>`;

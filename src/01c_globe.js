@@ -15,7 +15,8 @@ const Globe = (() => {
   function backdropGeom() {
     const vw = innerWidth, vh = innerHeight;
     const w = vw / vh <= 1 ? vw * 2.4 : Math.max(vw, vh * 1.7768);
-    return { ...geomFromPlate((vw - w) / 2, vh - w * 941 / 1672, w), a: curTheme() === 'light' ? .5 : .46, mask: 1 };
+    const fade = 1 - .38 * Math.min(1, scrollY / 760);
+    return { ...geomFromPlate((vw - w) / 2, vh - w * 941 / 1672, w), a: (curTheme() === 'light' ? .44 : .42) * fade, mask: 1 };
   }
   function target() {
     if (mode === 'hero' && heroEl && heroEl.isConnected) { const p = heroEl.getBoundingClientRect(); return { ...geomFromPlate(p.left, p.top, p.width), a: 1, mask: 0 }; }
@@ -28,7 +29,7 @@ const Globe = (() => {
     const g = c.getContext('2d'), o = S / 2, R = r * dpr;
     // halo
     let hg = g.createRadialGradient(o, o, R * .9, o, o, R + pad * dpr);
-    hg.addColorStop(0, light ? 'rgba(190,120,255,.42)' : 'rgba(150,70,220,.42)'); hg.addColorStop(.35, light ? 'rgba(240,150,220,.16)' : 'rgba(120,50,190,.16)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    hg.addColorStop(0, light ? 'rgba(190,120,255,.42)' : 'rgba(150,70,220,.42)'); hg.addColorStop(.35, light ? 'rgba(240,150,220,.16)' : 'rgba(120,50,190,.16)'); hg.addColorStop(1, light ? 'rgba(240,150,220,0)' : 'rgba(120,50,190,0)');
     g.fillStyle = hg; g.fillRect(0, 0, S, S);
     g.save(); g.beginPath(); g.arc(o, o, R, 0, Math.PI * 2); g.clip();
     g.fillStyle = light ? '#fbfaff' : '#050509'; g.fillRect(0, 0, S, S);
@@ -46,26 +47,39 @@ const Globe = (() => {
     // soft inner clouds
     g.globalCompositeOperation = light ? 'multiply' : 'screen';
     [[-.55, -.36, .3, light ? 'rgba(255,170,230,.55)' : 'rgba(255,120,220,.38)'], [.62, .2, .34, light ? 'rgba(255,150,225,.5)' : 'rgba(255,60,200,.34)'], [.15, -.72, .3, light ? 'rgba(150,150,255,.4)' : 'rgba(70,60,255,.3)'], [-.72, .5, .3, light ? 'rgba(255,180,235,.5)' : 'rgba(255,140,230,.36)']]
-      .forEach(([x, y, s, col]) => { const b = g.createRadialGradient(o + x * R, o + y * R, 0, o + x * R, o + y * R, s * R); b.addColorStop(0, col); b.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = b; g.fillRect(0, 0, S, S); });
+      .forEach(([x, y, s, col]) => { const b = g.createRadialGradient(o + x * R, o + y * R, 0, o + x * R, o + y * R, s * R); b.addColorStop(0, col); b.addColorStop(1, col.replace(/,[\d.]+\)$/, ',0)')); g.fillStyle = b; g.fillRect(0, 0, S, S); });
     g.restore(); g.globalCompositeOperation = 'source-over';
     // fine rim line
     g.lineWidth = Math.max(1, dpr * .8); g.strokeStyle = light ? 'rgba(170,110,255,.35)' : 'rgba(255,200,255,.22)'; g.beginPath(); g.arc(o, o, R - .5, 0, Math.PI * 2); g.stroke();
     body = c; bodyKey = key; return c;
   }
-  function lines(gm) {
-    const w = gm.r / .4148, left = gm.cx - w * .4985, top = gm.cy - w * .6074, h = w * 941 / 1672;
-    const P = (x, y) => [left + x * w, top + y * h];
-    const segs = [[[-.02, .66], [.42, -.02]], [[0, .22], [.2, .45]], [[.86, .78], [1.0, -.02]], [[.87, .98], [1.02, .69]]], nodes = [[.061, .546], [.127, .438], [.009, .232], [.92, .45], [.988, .727]];
-    ctx.lineWidth = dpr * .8; ctx.strokeStyle = curTheme() === 'light' ? 'rgba(24,20,48,.2)' : 'rgba(255,255,255,.28)';
-    ctx.beginPath(); segs.forEach(([a, b]) => { const p = P(...a), q = P(...b); ctx.moveTo(p[0] * dpr, p[1] * dpr); ctx.lineTo(q[0] * dpr, q[1] * dpr); }); ctx.stroke();
-    ctx.fillStyle = curTheme() === 'light' ? 'rgba(24,20,48,.45)' : 'rgba(255,255,255,.8)';
-    ctx.beginPath(); nodes.forEach(n => { const p = P(...n); ctx.moveTo(p[0] * dpr + 2 * dpr, p[1] * dpr); ctx.arc(p[0] * dpr, p[1] * dpr, 2 * dpr, 0, Math.PI * 2); }); ctx.fill();
+  // [from, to, node positions along the line, spark period in s]; plate units, the outer end sits beyond the screen edge
+  const SEGS = [
+    [[-.08, .84], [.46, -.1], [.2, .42], 13], [[-.08, .13], [.25, .52], [.26, .62], 9], [[-.08, .47], [.2, .25], [.46], 11], [[.015, -.08], [.12, .36], [.55], 15],
+    [[1.08, -.08], [.83, .86], [.3, .66], 12], [[1.08, .6], [.86, 1.04], [.38], 10], [[.69, -.09], [1.08, .31], [.42], 14], [[1.08, .4], [.93, .5], [.5], 8]
+  ];
+  function lines(gm, now) {
+    const w = gm.r / .4148, left = gm.cx - w * .4985, top = gm.cy - w * .6074, h = w * 941 / 1672, light = curTheme() === 'light';
+    const P = (x, y) => [(left + x * w) * dpr, (top + y * h) * dpr], col = light ? '60,40,120' : '232,222,255', A = light ? .24 : .32;
+    ctx.lineWidth = dpr * .85; ctx.lineCap = 'round';
+    SEGS.forEach(([a, b, nodes, per], i) => {
+      const p = P(...a), q = P(...b), g = ctx.createLinearGradient(p[0], p[1], q[0], q[1]);
+      g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(.24, `rgba(${col},${A})`); g.addColorStop(.8, `rgba(${col},${A})`); g.addColorStop(1, `rgba(${col},0)`);
+      ctx.strokeStyle = g; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.fillStyle = light ? 'rgba(60,40,120,.5)' : 'rgba(255,255,255,.85)';
+      ctx.beginPath(); nodes.forEach(t => { const x = p[0] + (q[0] - p[0]) * t, y = p[1] + (q[1] - p[1]) * t; ctx.moveTo(x + 2.1 * dpr, y); ctx.arc(x, y, 2.1 * dpr, 0, 6.2832); }); ctx.fill();
+      if (now == null) return;
+      const t = ((now / 1000 / per) + i * .37) % 1, k = Math.sin(Math.PI * Math.min(1, t / .9)) ** 2; if (t > .9) return;
+      const x = p[0] + (q[0] - p[0]) * t, y = p[1] + (q[1] - p[1]) * t, r = 9 * dpr, sg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      sg.addColorStop(0, light ? `rgba(194,62,136,${.55 * k})` : `rgba(255,230,250,${.9 * k})`); sg.addColorStop(.25, light ? `rgba(150,60,210,${.22 * k})` : `rgba(246,169,211,${.35 * k})`); sg.addColorStop(1, light ? 'rgba(150,60,210,0)' : 'rgba(246,169,211,0)');
+      ctx.fillStyle = sg; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    });
   }
-  function draw(gm) {
+  function draw(gm, now) {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
     if (gm.cy - gm.r * 1.4 > H || gm.cy + gm.r * .2 < 0 || gm.r < 4) return false;
     ctx.globalAlpha = gm.a;
-    lines(gm);
+    lines(gm, fxOff() ? null : now);
     const b = bodyLayer(gm.r), bs = b.width / dpr;
     ctx.drawImage(b, (gm.cx - bs / 2) * dpr, (gm.cy - bs / 2) * dpr, bs * dpr, bs * dpr);
     const light = curTheme() === 'light', R = gm.r * dpr, cx = gm.cx * dpr, cy = gm.cy * dpr, ct = Math.cos(TILT), st = Math.sin(TILT), k = Math.max(.6, gm.r / 620) * dpr;
@@ -91,7 +105,7 @@ const Globe = (() => {
     ctx.fill();
     if (gm.mask) {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in';
-      const mg = ctx.createLinearGradient(0, 0, 0, cv.height); mg.addColorStop(0, 'rgba(0,0,0,0)'); mg.addColorStop(.35, 'rgba(0,0,0,.6)'); mg.addColorStop(.7, 'rgba(0,0,0,1)');
+      const vh = innerHeight * dpr, mg = ctx.createLinearGradient(0, 0, 0, cv.height); mg.addColorStop(0, 'rgba(0,0,0,0)'); mg.addColorStop(.3 * vh / cv.height, 'rgba(0,0,0,.55)'); mg.addColorStop(.62 * vh / cv.height, 'rgba(0,0,0,1)'); mg.addColorStop(.84 * vh / cv.height, 'rgba(0,0,0,.78)'); mg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = mg; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = 'source-over';
     }
     ctx.globalAlpha = 1; return true;
@@ -105,20 +119,20 @@ const Globe = (() => {
     const animate = !fxOff() && !document.hidden;
     if (animate) spin = (now / 1000) * (Math.PI * 2 / 110);
     let vis = true;
-    if (now - last >= 1000 / FPS - 2 || dirty || tr < 1) { vis = draw(gm) !== false; cur = gm; last = now; dirty = false; }
+    if (now - last >= 1000 / FPS - 2 || dirty || tr < 1) { vis = draw(gm, now) !== false; cur = gm; last = now; dirty = false; }
     if ((animate && vis) || tr < 1) raf = requestAnimationFrame(frame);
   }
   const kick = () => { if (!raf && cv) raf = requestAnimationFrame(frame); };
   function resize() {
-    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = Math.max(innerHeight, cv.getBoundingClientRect().height || 0);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px';
     body = null; dirty = true; kick();
   }
   function init() {
     cv = document.createElement('canvas'); cv.id = 'globe'; cv.setAttribute('aria-hidden', 'true'); document.body.prepend(cv);
     ctx = cv.getContext('2d'); build(); resize();
     addEventListener('resize', debounce(resize, 120));
-    addEventListener('scroll', () => { if (mode === 'hero') { dirty = true; kick(); } }, { passive: true });
+    addEventListener('scroll', () => { dirty = true; kick(); }, { passive: true });
     document.addEventListener('visibilitychange', kick);
     on('theme', () => { body = null; dirty = true; kick(); }); on('settings', () => { dirty = true; kick(); });
   }

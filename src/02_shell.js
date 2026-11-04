@@ -1,14 +1,17 @@
 /* ---------- shell: nav, sheet, footer ---------- */
 const NAV = [['home', '#/', 'nav.home'], ['practice', '#/practice', 'nav.practice'], ['builder', '#/builder', 'nav.builder'], ['variants', '#/variants', 'nav.variants'], ['guide', '#/guide/format', 'nav.guide'], ['progress', '#/progress', 'nav.progress']];
 const MEDIA = D.meta.media;
+/* extra UI strings (aria labels etc.), kept here so applyLang() can switch them */
+const I18X = { 'aria.main': ['Main', 'Основная навигация'], 'aria.menu': ['Menu', 'Меню'], 'aria.lang': ['Language', 'Язык'], 'aria.footer': ['Footer', 'Подвал сайта'], 'aria.home': ['home', 'главная'], 'foot.services': ['Our services', 'Наши сервисы'], 'foot.cookies': ['Cookies', 'Файлы cookie'], 'set.fs_s': ['Small', 'Мелкий'], 'set.fs_m': ['Normal', 'Обычный'], 'set.fs_l': ['Large', 'Крупный'], 'set.fs_xl': ['Extra large', 'Очень крупный'] };
+Object.entries(I18X).forEach(([k, [e, r]]) => { D.i18n.en[k] = e; if (D.i18n.ru) D.i18n.ru[k] = r; });
 function stillImg(cls = '') { return `<img class="${cls}" src="${esc(MEDIA.still.local)}" data-remote="${esc(MEDIA.still.remote)}" alt="" width="${MEDIA.still.width}" height="${MEDIA.still.height}" decoding="async">`; }
 function fixImgFallback(root) { $$('img[data-remote]', root).forEach(img => { const f = () => { if (img.src !== img.dataset.remote) img.src = img.dataset.remote; }; img.addEventListener('error', f, { once: true }); if (img.complete && img.naturalWidth === 0) f(); }); }
 function shellHtml() {
   return `<a class="skip" href="#main" data-i18n="common.skip">${lang === 'ru' ? 'К содержанию' : 'Skip to content'}</a>
 <header class="nav" id="nav">
   <div class="nav-row">
-    <a class="brand" href="#/" aria-label="${esc(D.meta.brand)} – home">${brandHtml()}</a>
-    <nav class="nav-links" aria-label="Main"><span class="nav-ind" aria-hidden="true"></span>${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}">${T(l)}</a>`).join('')}</nav>
+    <a class="brand" href="#/" aria-label="${esc(D.meta.brand)} – ${esc(t('aria.home'))}">${brandHtml()}</a>
+    <nav class="nav-links" data-i18n-label="aria.main" aria-label="${esc(t('aria.main'))}"><span class="nav-ind" aria-hidden="true"></span>${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}">${T(l)}</a>`).join('')}</nav>
     <div class="nav-right">
       <div class="lang"><button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" data-i18n-label="nav.lang" aria-label="${esc(t('nav.lang'))}">${ic('globe')}<span class="lc">${lang.toUpperCase()}</span>${ic('chev', 'chev')}</button>
         <div class="lang-menu" id="langMenu" role="menu" hidden><button role="menuitemradio" data-lang="en" aria-checked="${lang === 'en'}"><span>English · EN</span><span class="mchk">${ic('check', 'draw')}</span></button><button role="menuitemradio" data-lang="ru" aria-checked="${lang === 'ru'}"><span>Русский · RU</span><span class="mchk">${ic('check', 'draw')}</span></button></div></div>
@@ -19,12 +22,12 @@ function shellHtml() {
   </div>
   <div class="nav-search" id="navSearch">${searchHtml()}</div>
 </header>
-<div class="sheet" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" aria-label="Menu">
+<div class="sheet" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" data-i18n-label="aria.menu" aria-label="${esc(t('aria.menu'))}">
   <div class="sheet-top"><a class="brand" href="#/">${brandHtml()}</a><button class="icon-btn" id="sheetClose" data-i18n-label="nav.close" aria-label="${esc(t('nav.close'))}">${ic('x')}</button></div>
   ${NAV.map(([k, h, l]) => `<a class="sl" href="${h}" data-nav="${k}">${ic(k)}${T(l)}</a>`).join('')}
   <a class="sl" href="#/about" data-nav="about">${ic('about')}${T('nav.about')}</a>
   <a class="sl" href="#/people" data-nav="people">${ic('people')}<span data-i18n="people.title">${esc(t('people.title'))}</span></a>
-  <div class="seg" role="group" aria-label="Language"><button data-lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="ru" aria-pressed="${lang === 'ru'}">RU</button></div>
+  <div class="seg" role="group" data-i18n-label="aria.lang" aria-label="${esc(t('aria.lang'))}"><button data-lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="ru" aria-pressed="${lang === 'ru'}">RU</button></div>
   <button class="sl sl-btn" type="button" data-open-settings>${ic('gear')}${T('set.title')}</button>
   <div class="sheet-actions" id="sheetAuth"></div>
 </div></div>
@@ -36,7 +39,7 @@ function shellHtml() {
 }
 function footerHtml() {
   return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand" href="#/">${brandHtml()}</a>
-  <nav aria-label="Footer"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a></nav></div>
+  <nav aria-label="${esc(t('aria.footer'))}"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a><a href="#/services">${T('foot.services')}</a><button type="button" class="foot-lnk" data-cookies>${T('foot.cookies')}</button></nav></div>
   <p>${T('common.footer')}</p><p>${esc(D.meta.note)}</p></footer>`;
 }
 function initShell() {
@@ -48,8 +51,13 @@ function initShell() {
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
   // language menu
   const lb = $('#langBtn'), lm = $('#langMenu');
-  const closeLm = () => { lm.hidden = true; lb.setAttribute('aria-expanded', 'false'); };
-  lb.addEventListener('click', e => { e.stopPropagation(); const o = lm.hidden; lm.hidden = !o; lb.setAttribute('aria-expanded', String(o)); if (o) $('button[aria-checked=true]', lm).focus(); });
+  let lmT = 0;
+  const closeLm = () => {
+    if (lm.hidden || lm.classList.contains('closing')) return; lb.setAttribute('aria-expanded', 'false');
+    if (reduced()) { lm.hidden = true; return; }
+    lm.classList.add('closing'); clearTimeout(lmT); lmT = setTimeout(() => { lm.hidden = true; lm.classList.remove('closing'); }, 150);
+  };
+  lb.addEventListener('click', e => { e.stopPropagation(); if (!lm.hidden && !lm.classList.contains('closing')) return closeLm(); clearTimeout(lmT); lm.classList.remove('closing'); lm.hidden = false; lb.setAttribute('aria-expanded', 'true'); $('button[aria-checked=true]', lm).focus(); });
   lm.addEventListener('keydown', e => { const b = $$('button', lm), i = b.indexOf(document.activeElement); if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); b[(i + (e.key === 'ArrowDown' ? 1 : -1) + b.length) % b.length].focus(); } if (e.key === 'Escape') { closeLm(); lb.focus(); } });
   document.addEventListener('click', e => { if (e.target.closest('[data-open-settings]')) { e.preventDefault(); closeSheet(false); openSettings(); }
   if (!e.target.closest('.lang')) closeLm(); const lbtn = e.target.closest('[data-lang]'); if (lbtn) { setLang(lbtn.dataset.lang); closeLm(); } });
@@ -105,38 +113,99 @@ function openProfile() {
 }
 
 /* ---------- band calculator + raw estimator ---------- */
-function calcHtml(id) {
-  const opts = []; for (let b = 0; b <= 9; b += .5) opts.push(b.toFixed(1));
-  const sel = (k, v) => `<label class="field">${T('skill.' + k)}<select class="inp" data-c="${k}">${opts.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
-  const ex = D.exam.rounding.examples;
-  return `<div class="calc" id="${id}"><div class="grid g4">${sel('L', '6.5')}${sel('R', '6.5')}${sel('W', '5.0')}${sel('S', '7.0')}</div>
-  <div class="calc-out"><div><div class="kicker">${T('calc.average')}</div><div class="big-num" data-avg style="font-size:40px">6.25</div></div><div><div class="kicker">${T('calc.overall')}</div><div class="big-num grad" data-ov>6.5</div></div></div>
-  <p class="note">${T('calc.rule')}</p><div class="row" style="margin-top:10px">${ex.map((e, i) => `<button class="pill pill-glass pill-sm preset" data-preset="${i}">${e.L} · ${e.R} · ${e.W} · ${e.S}</button>`).join('')}</div></div>`;
+const cefrOf = b => b >= 8.5 ? 'C2' : b >= 7 ? 'C1' : b >= 5.5 ? 'B2' : b >= 4 ? 'B1' : 'A1–A2';
+const lvlOf = b => b >= 7 ? 'C' : b >= 4 ? 'B' : 'A';
+const BANDS = []; for (let b = 9; b >= 0; b -= .5) BANDS.push(b);
+function bandSel(id, k, v) {
+  const lid = `${id}-${k}-l`, vid = `${id}-${k}-v`;
+  return `<div class="bsel" data-bsel="${k}"><span class="bsel-l" id="${lid}">${T('skill.' + k)}</span>
+  <button type="button" class="bsel-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="${lid} ${vid}"><span class="bsel-v" id="${vid}">${v.toFixed(1)}</span><span class="bsel-c">${cefrOf(v)}</span>${ic('chev', 'chev')}</button>
+  <input type="hidden" data-c="${k}" value="${v.toFixed(1)}">
+  <div class="bsel-pop" role="listbox" aria-labelledby="${lid}" tabindex="-1" hidden>${BANDS.map((b, i) => `<button type="button" role="option" data-v="${b.toFixed(1)}" aria-selected="${b === v}" style="--i:${i};--w:${(b / 9 * 100).toFixed(1)}%" class="lv-${lvlOf(b)}"><b>${b.toFixed(1)}</b><i aria-hidden="true"></i><small>${cefrOf(b)}</small></button>`).join('')}</div></div>`;
 }
+function calcHtml(id) {
+  const lv = tr('Level', 'Уровень');
+  return `<div class="calc" id="${id}"><div class="calc-grid">${bandSel(id, 'L', 6.5)}${bandSel(id, 'R', 6.5)}${bandSel(id, 'W', 5)}${bandSel(id, 'S', 7)}</div>
+  <div class="calc-out2" aria-live="polite"><div class="co"><span class="kicker">${T('calc.average')}</span><span class="co-n" data-avg>6.25</span><small>&nbsp;</small></div>
+  <div class="co main"><span class="kicker">${T('calc.overall')}</span><span class="co-n grad" data-ov>6.5</span><small>${esc(tr('rounded', 'с округлением'))}</small></div>
+  <div class="co"><span class="kicker">CEFR</span><span class="co-n" data-cefr>B2</span><small data-lvl>${esc(lv)} B</small></div></div>
+  <p class="note">${T('calc.rule')}</p></div>`;
+}
+const openBsel = { cur: null };
+function closeBsel(focus) { const s = openBsel.cur; if (!s) return; openBsel.cur = null; const pop = $('.bsel-pop', s), btn = $('.bsel-btn', s); btn.setAttribute('aria-expanded', 'false'); s.classList.remove('open');
+  if (reduced() || ecoOn()) pop.hidden = true; else { pop.classList.add('closing'); setTimeout(() => { pop.classList.remove('closing'); if (!s.classList.contains('open')) pop.hidden = true; }, 160); }
+  if (focus) btn.focus(); }
+document.addEventListener('pointerdown', e => { if (openBsel.cur && !openBsel.cur.contains(e.target)) closeBsel(false); });
 function bindCalc(root) {
-  const s = k => $(`[data-c="${k}"]`, root);
-  const upd = () => { const v = ['L', 'R', 'W', 'S'].map(k => parseFloat(s(k).value)); const avg = v.reduce((a, b) => a + b) / 4; $('[data-avg]', root).textContent = String(+avg.toFixed(3)); $('[data-ov]', root).textContent = overall(v).toFixed(1); };
-  $$('select', root).forEach(x => x.addEventListener('change', upd));
-  $$('[data-preset]', root).forEach(b => b.addEventListener('click', () => { const e = D.exam.rounding.examples[+b.dataset.preset]; ['L', 'R', 'W', 'S'].forEach(k => s(k).value = e[k].toFixed(1)); upd(); }));
+  const val = k => parseFloat($(`[data-c="${k}"]`, root).value);
+  const upd = () => {
+    const v = ['L', 'R', 'W', 'S'].map(val), avg = v.reduce((a, b) => a + b) / 4, ov = overall(v);
+    $('[data-avg]', root).textContent = String(+avg.toFixed(3)); $('[data-ov]', root).textContent = ov.toFixed(1);
+    $('[data-cefr]', root).textContent = cefrOf(ov); $('[data-lvl]', root).textContent = `${tr('Level', 'Уровень')} ${lvlOf(ov)}`;
+    $$('[data-bsel]', root).forEach(s => { const x = val(s.dataset.bsel); $('.bsel-v', s).textContent = x.toFixed(1); $('.bsel-c', s).textContent = cefrOf(x); $$('[role=option]', s).forEach(o => o.setAttribute('aria-selected', String(+o.dataset.v === x))); });
+  };
+  const pick = (s, v) => { const inp = $('[data-c]', s); inp.value = v; inp.dispatchEvent(new Event('change')); closeBsel(true); };
+  $$('[data-bsel]', root).forEach(s => {
+    const btn = $('.bsel-btn', s), pop = $('.bsel-pop', s);
+    $('[data-c]', s).addEventListener('change', upd);
+    btn.addEventListener('click', () => {
+      if (openBsel.cur === s) return closeBsel(true);
+      closeBsel(false); openBsel.cur = s; pop.hidden = false; pop.classList.remove('closing'); s.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+      const sel = $('[aria-selected=true]', pop) || $('[role=option]', pop);
+      pop.scrollTop = Math.max(0, sel.offsetTop - pop.clientHeight / 2 + sel.offsetHeight / 2); sel.focus({ preventScroll: true });
+    });
+    pop.addEventListener('click', e => { const o = e.target.closest('[role=option]'); if (o) pick(s, o.dataset.v); });
+    pop.addEventListener('keydown', e => {
+      const os = $$('[role=option]', pop), i = os.indexOf(document.activeElement);
+      const go = j => { e.preventDefault(); os[Math.max(0, Math.min(os.length - 1, j))].focus(); };
+      if (e.key === 'ArrowDown') go(i + 1); else if (e.key === 'ArrowUp') go(i - 1); else if (e.key === 'Home') go(0); else if (e.key === 'End') go(os.length - 1);
+      else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); closeBsel(true); }
+    });
+  });
   upd();
 }
-function openCalc() { openDialog({ titleKey: 'calc.title', wide: true, body: calcHtml('calcDlg') + `<div class="lightline"><i></i></div><h3 style="margin-bottom:12px">${T('raw.title')}</h3>` + rawHtml('rawDlg'), onOpen: d => { bindCalc($('#calcDlg', d)); bindRaw($('#rawDlg', d)); } }); }
+function openCalc() { openDialog({ titleKey: 'calc.title', wide: true, cls: 'calc-dlg', body: calcHtml('calcDlg') + `<div class="lightline"><i></i></div><h3 class="raw-h">${T('raw.title')}</h3>` + rawHtml('rawDlg'), onOpen: d => { bindCalc($('#calcDlg', d)); bindRaw($('#rawDlg', d)); } }); }
+const RAW_TESTS = [['listening', 'skill.L'], ['readingAcademic', 'raw.academic'], ['readingGeneral', 'raw.general']];
 function rawHtml(id) {
-  return `<div class="raw" id="${id}"><div class="seg" role="group" aria-label="Test"><button data-test="listening" aria-pressed="true">${T('skill.L')}</button><button data-test="readingAcademic" aria-pressed="false">${T('raw.academic')}</button><button data-test="readingGeneral" aria-pressed="false">${T('raw.general')}</button></div>
-  <div class="grid g2" style="margin-top:16px;align-items:end"><label class="field">${T('raw.correct')}<input type="range" min="0" max="40" value="30" data-r></label><label class="field" style="max-width:120px">&nbsp;<input class="inp" type="number" min="0" max="40" value="30" data-n aria-label="${esc(t('raw.correct'))}"></label></div>
-  <div class="calc-out"><div class="big-num grad" data-out>7</div><div class="muted" data-outtxt></div></div>
-  <div class="tbl-wrap" style="margin-top:16px"><table class="tbl" style="min-width:0"><thead><tr><th>Correct answers</th>${ANCH.listening.map(a => `<th class="num">${a.raw}</th>`).join('')}</tr></thead><tbody data-at></tbody></table></div>
+  return `<div class="raw" id="${id}"><div class="seg" role="group" aria-label="${esc(tr('Test', 'Тест'))}">${RAW_TESTS.map(([k, l], i) => `<button type="button" data-test="${k}" aria-pressed="${!i}">${T(l)}</button>`).join('')}</div>
+  <div class="rs-row"><div class="rs" data-rs role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="40" aria-valuenow="30" aria-label="${esc(t('raw.correct'))}" style="--p:.75">
+    <div class="rs-track"><i class="rs-fill"></i><span class="rs-ticks" data-ticks></span></div><span class="rs-thumb"><span class="rs-tip" data-tip-v>30</span></span></div>
+    <label class="rs-num"><input class="inp" type="number" min="0" max="40" step="1" value="30" inputmode="numeric" data-n aria-label="${esc(t('raw.correct'))}"><span>/ 40</span></label></div>
+  <div class="rs-scale" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span></div>
+  <div class="raw-out"><div class="big-num grad" data-out>7</div><div class="raw-meta"><div class="muted" data-outtxt></div><div class="row"><span class="lp" data-rcefr></span><span class="lp" data-rlvl></span></div></div></div>
+  <div class="tbl-wrap calc-tw"><table class="tbl calc-tbl"><thead><tr><th scope="col">${esc(tr('Band', 'Балл'))}</th>${RAW_TESTS.map(([k, l]) => `<th scope="col" data-col="${k}">${T(l)}</th>`).join('')}<th scope="col">CEFR</th></tr></thead><tbody data-at></tbody></table></div>
   <p class="note">${esc(ANCH.note)} <a href="${esc(ANCH.source)}" target="_blank" rel="noopener">ielts.org</a></p></div>`;
 }
+function rawRange(list, band) { const i = list.findIndex(a => a.band === band); if (i < 0) return '—'; const lo = list[i].raw, hi = i < list.length - 1 ? list[i + 1].raw - 1 : 40; return lo === hi ? String(lo) : `${lo}–${hi}`; }
 function bindRaw(root) {
-  let test = 'listening';
-  const r = $('[data-r]', root), n = $('[data-n]', root);
-  const upd = () => {
-    const v = Math.max(0, Math.min(40, parseInt(n.value || r.value, 10) || 0)); const e = estimateBand(v, test);
-    $('[data-out]', root).textContent = e.below ? '<' + e.band : e.band; $('[data-outtxt]', root).textContent = `${v}/40 → ${bandText(e)}`;
-    $('[data-at]', root).innerHTML = ['listening', 'readingAcademic', 'readingGeneral'].map(k => `<tr${k === test ? ' style="background:var(--glass-2)"' : ''}><td>${k === 'listening' ? T('skill.L') : k === 'readingAcademic' ? T('raw.academic') : T('raw.general')}</td>${ANCH[k].map(a => `<td class="num">${a.band}</td>`).join('')}</tr>`).join('');
+  let test = 'listening', v = 30, drag = false;
+  const rs = $('[data-rs]', root), n = $('[data-n]', root), tip = $('[data-tip-v]', root);
+  const bands = [...new Set(ANCH.listening.map(a => a.band))].sort((a, b) => b - a);
+  const table = () => {
+    const e = estimateBand(v, test);
+    $('[data-at]', root).innerHTML = bands.map(b => `<tr class="${!e.below && e.band === b ? 'on' : ''} lv-${lvlOf(b)}"><th scope="row"><span class="bdot"></span>${b.toFixed(1)}</th>${RAW_TESTS.map(([k]) => `<td class="${k === test ? 'cur' : ''}">${rawRange(ANCH[k], b)}</td>`).join('')}<td><span class="cefr-t">${cefrOf(b)}</span></td></tr>`).join('');
+    $$('[data-col]', root).forEach(th => th.classList.toggle('cur', th.dataset.col === test));
+    $('[data-ticks]', root).innerHTML = ANCH[test].map(a => `<i style="left:${a.raw / 40 * 100}%" class="${!e.below && a.band === e.band ? 'on' : ''}"></i>`).join('');
   };
-  r.addEventListener('input', () => { n.value = r.value; upd(); }); n.addEventListener('input', () => { r.value = n.value; upd(); });
+  const upd = (opts = {}) => {
+    const e = estimateBand(v, test);
+    rs.style.setProperty('--p', (v / 40).toFixed(4)); rs.setAttribute('aria-valuenow', String(v)); rs.setAttribute('aria-valuetext', `${v} / 40`); tip.textContent = v;
+    if (!opts.keepField) n.value = v;
+    $('[data-out]', root).textContent = e.below ? '<' + e.band : e.band; $('[data-outtxt]', root).textContent = `${v}/40 → ${bandText(e)}`;
+    const b = e.below ? 3.5 : e.band; $('[data-rcefr]', root).textContent = 'CEFR ' + cefrOf(b);
+    const l = $('[data-rlvl]', root); l.className = 'lp lv-' + lvlOf(b); l.innerHTML = `<i></i>${esc(tr('Level', 'Уровень'))} ${lvlOf(b)}`;
+    table();
+  };
+  const setV = (x, opts) => { x = Math.max(0, Math.min(40, Math.round(x))); if (x === v && !opts) return; v = x; upd(opts); };
+  const fromX = e => { const r = $('.rs-track', rs).getBoundingClientRect(); return (e.clientX - r.left) / r.width * 40; };
+  rs.addEventListener('pointerdown', e => { if (e.button) return; drag = true; rs.classList.add('drag'); rs.setPointerCapture(e.pointerId); rs.focus({ preventScroll: true }); setV(fromX(e)); setTimeout(() => drag && rs.classList.add('dragging'), 140); });
+  rs.addEventListener('pointermove', e => { if (drag) { rs.classList.add('dragging'); setV(fromX(e)); } });
+  const end = () => { drag = false; rs.classList.remove('drag', 'dragging'); };
+  rs.addEventListener('pointerup', end); rs.addEventListener('pointercancel', end);
+  rs.addEventListener('keydown', e => { const k = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 5, PageDown: -5 }[e.key]; if (k) { e.preventDefault(); setV(v + k); } else if (e.key === 'Home') { e.preventDefault(); setV(0); } else if (e.key === 'End') { e.preventDefault(); setV(40); } });
+  n.addEventListener('input', () => { if (n.value.trim() === '') return; const x = parseInt(n.value, 10); if (!isFinite(x)) return; v = Math.max(0, Math.min(40, x)); upd({ keepField: true }); });
+  n.addEventListener('blur', () => { n.value = v; });
+  n.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); n.value = v; } });
   $$('[data-test]', root).forEach(b => b.addEventListener('click', () => { test = b.dataset.test; $$('[data-test]', root).forEach(x => x.setAttribute('aria-pressed', String(x === b))); upd(); }));
   upd();
 }

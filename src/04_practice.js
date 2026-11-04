@@ -24,7 +24,7 @@ route(/^\/practice$/, (v, _, q) => {
   v.innerHTML = `<div class="page">${pageHead(`${ic('practice')} ${T('nav.practice')} · 12`, 'practice.title', 'practice.sub')}
   <div class="tabbar">${tabsHtml('flv', [{ id: 'all', html: T('practice.all') }, ...D.levels.map(l => ({ id: l.id, html: `<span class="dot lv-${l.id}"></span>${esc(l.id)}` }))], lv, 'Level')}
   ${tabsHtml('fsk', [{ id: 'all', html: T('practice.all') }, ...D.skills.map(s => ({ id: s.id, html: `${s.icon} ${T('skill.' + s.id)}` }))], sk, 'Skill')}</div>
-  <div id="fsk-panel" role="tabpanel" aria-label="Tasks"><div class="grid gauto" id="taskGrid"></div></div>
+  <div id="fsk-panel" role="tabpanel" aria-label="${esc(tr('Tasks', 'Задания'))}"><div class="grid gauto" id="taskGrid"></div></div>
   <section class="sec"><div class="sec-head"><span class="glass-pill">${ic('bolt')} ${T('practice.drills')}</span></div>
    <div class="grid g3">
     ${drillCard('tfng', 'A', 'T/F/NG', 'book', '#/drill/tfng', T('drill.tfng'), plain(D.drills.tfng.rule), [`${ic('book')} ${esc(t('skill.R'))}`, esc(cnt(D.drills.tfng.items.length, ['statement', 'statements'], ['утверждение', 'утверждения', 'утверждений']))])}
@@ -83,8 +83,8 @@ function lrPlayer(task, { mode = 'practice', embedded = false, save = true, time
   let checked = false, lastScore = null, started = false, timer = null, startT = Date.now();
   const gapHtml = (q, g, pr) => {
     if (pr) return `<span class="pgap">(${q.n})</span>`;
-    if (q.kind === 'choice') return `<span class="gapw"><b class="qn">${q.n}</b><select class="gsel" data-n="${q.n}" aria-label="Question ${q.n}"><option value="">—</option>${(q.options || g.options).map(o => `<option value="${esc(o.key)}">${esc(o.key)}${o.text && o.text !== o.key ? ' · ' + esc(o.text) : ''}</option>`).join('')}</select></span>`;
-    return `<span class="gapw"><b class="qn">${q.n}</b><input class="gap" data-n="${q.n}" aria-label="Question ${q.n}" autocomplete="off" autocapitalize="off" spellcheck="false"></span>`;
+    if (q.kind === 'choice') return `<span class="gapw"><b class="qn">${q.n}</b><select class="gsel" data-n="${q.n}" aria-label="${esc(tr('Question ', 'Вопрос '))}${q.n}"><option value="">—</option>${(q.options || g.options).map(o => `<option value="${esc(o.key)}">${esc(o.key)}${o.text && o.text !== o.key ? ' · ' + esc(o.text) : ''}</option>`).join('')}</select></span>`;
+    return `<span class="gapw"><b class="qn">${q.n}</b><input class="gap" data-n="${q.n}" aria-label="${esc(tr('Question ', 'Вопрос '))}${q.n}" autocomplete="off" autocapitalize="off" spellcheck="false"></span>`;
   };
   const qItem = (q, g) => {
     if (g.type === 'sentence') return `<li class="qi" data-qi="${q.n}"><p>${md(q.prompt, () => gapHtml(q, g))}</p><div class="qfb"></div></li>`;
@@ -111,14 +111,15 @@ function lrPlayer(task, { mode = 'practice', embedded = false, save = true, time
     return `<section class="glass grp" data-g="${g.range}"><div class="grp-head"><h3 class="grp-title">${lang === 'ru' ? 'Вопросы' : 'Questions'} ${esc(g.range)}</h3>${g.limit ? `<span class="lp warn">${esc(g.limit.label)}</span>` : ''}</div><p class="instr">${md(g.instructions)}</p>${body}${inline && g.kind !== 'list' ? '<div class="grp-fb" hidden></div>' : ''}</section>`;
   };
   const isL = task.skill === 'L';
+  const introHtml = task.intro && !(task.groups.length === 1 && plain(task.intro).trim() === plain(task.groups[0].instructions).trim()) ? `<p class="instr" style="margin-top:6px">${md(task.intro)}</p>` : '';
   const tipsHtml = task.tips && task.tips.length ? `<details class="disc tips"${task.level === 'A' ? ' open' : ''}><summary>${ic('bulb')} ${T('task.tips')}</summary><div class="dc"><ul class="dash tip-list">${task.tips.map(x => `<li>${md(x)}</li>`).join('')}</ul></div></details>` : '';
   const groupsHtml = task.groups.map(groupHtml).join('');
   const checkBar = `<div class="check-bar"><button class="pill pill-white" data-act="check">${ic('check')} ${T('task.check')}</button>${!exam ? `<button class="pill pill-outline" data-act="show">${T('task.show')}</button>` : ''}<button class="pill pill-glass" data-act="reset" hidden>${ic('replay')} ${T('task.reset')}</button></div><div data-score></div>`;
   if (isL) {
-    el.innerHTML = `${task.intro ? `<p class="instr" style="margin-top:6px">${md(task.intro)}</p>` : ''}${tipsHtml}${audioPanelHtml(P, exam)}${groupsHtml}${checkBar}<div class="transcript-wrap"></div>`;
+    el.innerHTML = `${introHtml}${tipsHtml}${audioPanelHtml(P, exam)}${groupsHtml}${checkBar}<div class="transcript-wrap"></div>`;
   } else {
     const ps = task.passage;
-    el.innerHTML = `${task.intro ? `<p class="instr" style="margin-top:6px">${md(task.intro)}</p>` : ''}${tipsHtml}
+    el.innerHTML = `${introHtml}${tipsHtml}
     ${tabsHtml(P + 'r', [{ id: 'text', html: T('task.passage') }, { id: 'qs', html: T('task.questions') }], 'text', 'Text or questions', 'rtabs')}
     <div class="reading-split" id="${P}r-panel"><article class="glass passage" data-rpanel="text" aria-label="${esc(ps.title)}"><h2>${esc(ps.title)}</h2>${ps.paragraphs.map(p => `<p><span class="pl">${esc(p.label)}</span><span>${md(p.text)}</span></p>`).join('')}</article>
     <div class="qs" data-rpanel="qs" hidden>${groupsHtml}${checkBar}</div></div>`;
