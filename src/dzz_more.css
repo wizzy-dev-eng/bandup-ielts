@@ -141,8 +141,8 @@ textarea.inp.sm,.adm-annf textarea.inp,.mod-dlg textarea.inp{min-height:84px;fon
 @media (prefers-reduced-motion:reduce){.bdg-wizzy,.bdg-wizzy::before{animation:none}}
 
 /* ---------- avatar frames ---------- */
-.av.fr::before{content:'';position:absolute;z-index:1;inset:calc(var(--s) * -.075);border-radius:50%;padding:calc(var(--s) * .045 + 1px);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);pointer-events:none}
-.av.fr::after{content:'';position:absolute;inset:calc(var(--s) * -.075);border-radius:50%;pointer-events:none}
+.av.fr::before{content:'';position:absolute;z-index:1;inset:calc(var(--s) * -.05);border-radius:50%;padding:calc(var(--s) * .05 + 1px);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);pointer-events:none}
+.av.fr::after{content:'';position:absolute;inset:calc(var(--s) * -.05);border-radius:50%;pointer-events:none}
 .fr-glow::before{background:linear-gradient(135deg,var(--pink),var(--lilac))}
 .fr-glow::after{box-shadow:0 0 calc(var(--s) * .22) rgba(214,170,255,.55)}
 .fr-gold::before{background:conic-gradient(from 210deg,#8a6a1f,#f6dd8f,#b88a2e,#fff1c2,#a07a28,#f6dd8f,#8a6a1f)}

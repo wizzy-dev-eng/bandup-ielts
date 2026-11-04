@@ -101,7 +101,7 @@ route(/^\/signup$/, (v, _, q) => {
   return { title: t('auth.signup'), nav: 'signup', relang: true };
 });
 route(/^\/login$/, (v, _, q) => {
-  if (Auth.user) { goHash('#/u/' + Auth.user.login); return { title: t('auth.login') }; }
+  if (Auth.user) { const nx = q.get('next') || ''; goHash(/^#\/(?!login|signup)/.test(nx) ? nx : '#/u/' + Auth.user.login); return { title: t('auth.login') }; }
   v.innerHTML = `<div class="page auth-page"><div class="auth-wrap">${authAside('login')}
   <form class="glass auth-card" novalidate data-auth><h1 class="display page-title"><span class="grad">${esc(t('auth.login'))}</span></h1>
   <p class="muted">${esc(tr('Log in to sync your progress, sets and profile.', 'Войди, чтобы синхронизировать прогресс, наборы и профиль.'))}</p>
@@ -118,10 +118,46 @@ route(/^\/login$/, (v, _, q) => {
     if (!f.id.value.trim()) { setMsg(f, 'id', tr('Enter your email or login', 'Введи email или логин')); f.id.focus(); return; }
     if (!f.password.value) { setMsg(f, 'password', tr('Enter the password', 'Введи пароль')); f.password.focus(); return; }
     const b = $('.auth-submit', f); busyBtn(b, true);
-    try { const u = await Auth.login(f.id.value.trim(), f.password.value); toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login; }
+    const pw = f.password.value;
+    try {
+      const u = await Auth.login(f.id.value.trim(), pw);
+      if (u && u.tfa) { tfaStep(u.ticket, pw); return; }
+      toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login;
+    }
     catch (ex) { err.textContent = errText(ex); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
     finally { busyBtn(b, false); }
   });
+  /* second step: a code from the authenticator app or a recovery code */
+  const tfaStep = (ticket, pw) => {
+    const card = document.createElement('form'); card.className = 'glass auth-card tfa-card'; card.noValidate = true;
+    card.innerHTML = `<span class="tfa-ic" aria-hidden="true">${ic('shieldLock')}</span><h1 class="display page-title"><span class="grad">${esc(tr('Two-step verification', 'Двухэтапная проверка'))}</span></h1>
+    <p class="muted">${esc(tr('Open the authenticator app and enter the 6-digit code for lynx.', 'Открой приложение-аутентификатор и введи 6-значный код для lynx.'))}</p>
+    <div class="otp" data-otp>${[0, 1, 2, 3, 4, 5].map(i => `<input class="otp-c" inputmode="numeric" maxlength="1" autocomplete="${i ? 'off' : 'one-time-code'}" aria-label="${esc(tr('Digit ', 'Цифра ') + (i + 1))}">`).join('')}</div>
+    <div class="tfa-rc" data-rcbox hidden>${fld({ name: 'rc', label: tr('Recovery code', 'Код восстановления'), icon: 'key', ph: 'xxxx-xxxx', auto: 'one-time-code', extra: 'spellcheck="false" autocapitalize="off" maxlength="12"' })}</div>
+    <p class="form-err" data-err role="alert"></p>
+    <button class="pill pill-white auth-submit" type="submit"><span class="spin" aria-hidden="true"></span>${ic('check')}<span>${esc(tr('Confirm', 'Подтвердить'))}</span></button>
+    <p class="auth-alt"><button type="button" class="txt-btn" data-userc>${ic('key')} ${esc(tr('Use a recovery code', 'Использовать код восстановления'))}</button> · <a href="#/login" data-back>${esc(tr('Back', 'Назад'))}</a></p>`;
+    f.replaceWith(card); bindFields(card);
+    const cells = $$('.otp-c', card), err = $('[data-err]', card); let useRc = false;
+    const code = () => useRc ? card.rc.value.trim() : cells.map(c => c.value).join('');
+    cells.forEach((c, i) => {
+      c.addEventListener('input', () => { const d = c.value.replace(/\D/g, ''); if (d.length > 1) { d.slice(0, 6).split('').forEach((x, k) => { if (cells[i + k]) cells[i + k].value = x; }); (cells[Math.min(5, i + d.length)] || c).focus(); } else { c.value = d; if (d && cells[i + 1]) cells[i + 1].focus(); } if (code().length === 6) card.requestSubmit(); });
+      c.addEventListener('keydown', e => { if (e.key === 'Backspace' && !c.value && cells[i - 1]) { cells[i - 1].focus(); cells[i - 1].value = ''; e.preventDefault(); } if (e.key === 'ArrowLeft' && cells[i - 1]) cells[i - 1].focus(); if (e.key === 'ArrowRight' && cells[i + 1]) cells[i + 1].focus(); });
+      c.addEventListener('paste', e => { const t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, ''); if (t) { e.preventDefault(); t.slice(0, 6).split('').forEach((x, k) => { if (cells[k]) cells[k].value = x; }); (cells[Math.min(5, t.length)] || cells[5]).focus(); if (t.length >= 6) card.requestSubmit(); } });
+    });
+    $('[data-userc]', card).addEventListener('click', () => { useRc = !useRc; $('[data-otp]', card).hidden = useRc; $('[data-rcbox]', card).hidden = !useRc; $('[data-userc]', card).lastChild.textContent = ' ' + (useRc ? tr('Use the app code', 'Ввести код из приложения') : tr('Use a recovery code', 'Использовать код восстановления')); (useRc ? card.rc : cells[0]).focus(); });
+    $('[data-back]', card).addEventListener('click', e => { e.preventDefault(); render({ instant: true }); });
+    let busy = false;
+    card.addEventListener('submit', async e => {
+      e.preventDefault(); if (busy) return; err.textContent = '';
+      const c = code(); if (!useRc && c.length !== 6) { err.textContent = tr('Enter all 6 digits', 'Введи все 6 цифр'); return; } if (useRc && c.replace(/[^a-z0-9]/gi, '').length !== 8) { err.textContent = tr('The recovery code looks like xxxx-xxxx', 'Код восстановления выглядит как xxxx-xxxx'); return; }
+      const b = $('.auth-submit', card); busy = true; busyBtn(b, true);
+      try { const u = await Auth.login2(ticket, c, pw); toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login; }
+      catch (ex) { err.textContent = errText(ex); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); if (!useRc) { cells.forEach(x => { x.value = ''; }); cells[0].focus(); } if (ex.code === 'tfa_expired') setTimeout(() => render({ instant: true }), 1600); }
+      finally { busy = false; busyBtn(b, false); }
+    });
+    setTimeout(() => cells[0].focus(), 60);
+  };
   return { title: t('auth.login'), nav: 'login', relang: true };
 });
 
@@ -218,9 +254,9 @@ function profileHtml(u, me) {
   return `<section class="prof glass${u.banned ? ' is-banned' : ''}" style="--h:${hashHue(u.login)}">${coverHtml(u.banner)}
   <div class="prof-main">${avatarHtml(u, 116, 'prof-av')}
     <div class="prof-id"><h1 class="display page-title" tabindex="-1">${esc(u.nick)}</h1><p class="prof-login"><span>@${esc(u.login)}</span>${badgesHtml(u)}</p></div>
-    <div class="prof-side"><div class="prof-acts">${me ? `<a class="pill pill-white pill-sm" href="#/me">${ic('pen')} ${esc(tr('Edit profile', 'Редактировать'))}</a><button type="button" class="pill pill-outline pill-sm" data-logout>${ic('logout')} ${esc(t('auth.logout'))}</button>` : `<button type="button" class="pill pill-glass pill-sm" data-copylink>${ic('link')} ${esc(tr('Copy link', 'Скопировать ссылку'))}</button>`}${showMod ? `<button type="button" class="pill pill-outline pill-sm mod-btn" data-mod>${ic('shield')} ${esc(tr('Moderate', 'Модерация'))}</button>` : ''}${me && isStaffU(u) ? `<a class="pill pill-outline pill-sm mod-btn" href="#/admin">${ic('shield')} ${esc(tr('Admin panel', 'Админ-панель'))}</a>` : ''}</div>
+    <div class="prof-side"><div class="prof-acts">${me ? `<a class="pill pill-white pill-sm" href="#/me">${ic('pen')} ${esc(tr('Edit profile', 'Редактировать'))}</a><button type="button" class="pill pill-outline pill-sm" data-logout>${ic('logout')} ${esc(t('auth.logout'))}</button>` : `${socialBtnsHtml(u)}<button type="button" class="pill pill-glass pill-sm" data-copylink>${ic('link')} ${esc(tr('Copy link', 'Скопировать ссылку'))}</button>`}${showMod ? `<button type="button" class="pill pill-outline pill-sm mod-btn" data-mod>${ic('shield')} ${esc(tr('Moderate', 'Модерация'))}</button>` : ''}${me && isStaffU(u) ? `<a class="pill pill-outline pill-sm mod-btn" href="#/admin">${ic('shield')} ${esc(tr('Admin panel', 'Админ-панель'))}</a>` : ''}</div>
     ${socialsHtml(u.socials)}</div></div>
-  ${u.banned && mod ? `<p class="prof-ban">${ic('ban')} ${esc(tr('Blocked', 'Заблокирован'))} ${mod.bannedUntil && /^9999/.test(mod.bannedUntil) ? esc(tr('forever', 'навсегда')) : mod.bannedUntil ? esc(tr('until ', 'до ') + fmtDate(mod.bannedUntil, true)) : ''}${mod.banReason ? ' · ' + esc(mod.banReason) : ''}</p>` : ''}
+  ${u.banned && mod ? `<p class="prof-ban">${ic('ban')} ${esc(tr('Blocked', 'Заблокирован'))} ${mod.bannedUntil && /^9999/.test(mod.bannedUntil) ? esc(tr('forever', 'навсегда')) : mod.bannedUntil ? esc(tr('until ', 'до ') + fmtDate(mod.bannedUntil, true)) : ''}${mod.banReason ? ' · ' + esc(banReasonText(mod.banReason)) : ''}</p>` : ''}
   ${u.bio ? `<p class="prof-bio">${esc(u.bio)}</p>` : me ? `<p class="prof-bio faint">${esc(tr('Add a few words about yourself in the profile settings.', 'Добавь пару слов о себе в настройках профиля.'))}</p>` : ''}
   <div class="prof-meta"><span>${ic('calendar')} ${esc(tr('Joined', 'С нами с'))} ${fmtDate(u.created, true)}</span>${u.seen ? `<span>${ic('clock')} ${esc(tr('Active', 'Активность'))}: ${fmtDate(u.seen, true)}</span>` : ''}${s.level ? `<span>${ic('target')} ${esc(tr('Level', 'Уровень'))} ${esc(s.level)}</span>` : ''}</div></section>
   <div class="grid g4 prof-stats">${stat('chart', s.attempts || 0, tr('attempts', 'попыток'))}${stat('practice', `${s.tasks || 0}/12`, tr('tasks done', 'заданий пройдено'))}${stat('variants', s.variants || 0, tr('variants finished', 'вариантов пройдено'))}${stat('layers', sets.length, tr('public sets', 'публичных наборов'))}</div>
@@ -229,6 +265,17 @@ function profileHtml(u, me) {
   ${achievementsHtml()}
   <section class="sec"><div class="sec-head"><span class="glass-pill">${ic('layers')} ${esc(tr('Showcase', 'Витрина'))}</span><h2 class="sec-title display"><span class="grad">${esc(tr('Public sets', 'Публичные наборы'))}</span></h2>${me ? `<p class="muted">${esc(tr('Open the builder and press the eye button on a saved set to show it here.', 'Открой конструктор и нажми на «глаз» у сохранённого набора, чтобы показать его здесь.'))}</p>` : ''}</div>
   ${sets.length ? `<div class="grid g3">${sets.map(x => setCard(x, me, canDel)).join('')}</div>` : `<div class="glass empty"><div class="em em-lg">${ic('layers')}</div><p>${esc(me ? tr('You have no public sets yet.', 'У тебя пока нет публичных наборов.') : tr('No public sets yet.', 'Публичных наборов пока нет.'))}</p>${me ? `<a class="pill pill-white pill-sm" href="#/builder">${ic('builder')} ${T('nav.builder')}</a>` : ''}</div>`}</section>`;
+}
+function socialBtnsHtml(u) {
+  if (!Auth.user || !u.rel) return '';
+  const r = u.rel, b = (k, icon, label, cls = 'pill-glass', tip = '') => `<button type="button" class="pill ${cls} pill-sm" data-fr="${k}"${tip ? ` data-tip="${esc(tip)}"` : ''}>${ic(icon)} ${esc(label)}</button>`;
+  let h = '';
+  if (r === 'friends') h += b('remove', 'userCheck', tr('Friends', 'В друзьях'), 'pill-glass fr-on', tr('Remove from friends', 'Удалить из друзей'));
+  else if (r === 'in') h += b('accept', 'userCheck', tr('Accept request', 'Принять заявку'), 'pill-white');
+  else if (r === 'out') h += b('cancel', 'clock', tr('Request sent', 'Заявка отправлена'), 'pill-glass', tr('Cancel the request', 'Отменить заявку'));
+  else if (u.canFriend) h += b('add', 'userPlus', tr('Add friend', 'Добавить в друзья'), 'pill-white');
+  if (u.canDm) h += `<button type="button" class="pill pill-outline pill-sm" data-dm>${ic('chat')} ${esc(tr('Message', 'Написать'))}</button>`;
+  return h;
 }
 function loadingHtml() { return `<div class="glass loading-card"><span class="spin big" aria-hidden="true"></span><span>${esc(t('common.loading'))}</span></div>`; }
 function errorCard(e, retry) { return `<div class="glass empty"><div class="em em-lg">${ic(e.code === 'not_found' ? 'search' : 'alert')}</div><p>${esc(errText(e))}</p><div class="row" style="justify-content:center">${retry ? `<button class="pill pill-white pill-sm" data-retry>${ic('replay')} ${esc(tr('Try again', 'Повторить'))}</button>` : ''}<a class="pill pill-outline pill-sm" href="#/people">${ic('people')} ${T('people.title')}</a></div></div>`; }
@@ -239,7 +286,7 @@ route(/^\/u\/([A-Za-z0-9_]{1,40})$/, (v, [login]) => {
   let user = null;
   const load = () => api('user', { q: { login } }).then(j => {
     if (tok !== renderTok) return; user = j.user; box.innerHTML = profileHtml(user, me); document.title = `${D.meta.brand} – ${user.nick} (@${user.login})`;
-    if (me && Auth.user && (Auth.user.avatar !== user.avatar || Auth.user.nick !== user.nick || Auth.user.role !== user.role || Auth.user.frame !== user.frame)) Auth.setUser({ ...Auth.user, avatar: user.avatar, nick: user.nick, role: user.role, badges: user.badges, frame: user.frame, socials: user.socials, banner: user.banner });
+    if (me && Auth.user && (Auth.user.avatar !== user.avatar || Auth.user.nick !== user.nick || Auth.user.role !== user.role || Auth.user.frame !== user.frame || !!Auth.user.premium !== !!user.premium || JSON.stringify(Auth.user.bt || null) !== JSON.stringify(user.bt || null))) Auth.setUser({ ...Auth.user, avatar: user.avatar, nick: user.nick, role: user.role, badges: user.badges, frame: user.frame, socials: user.socials, banner: user.banner, premium: user.premium, bt: user.bt });
   }).catch(e => { if (tok !== renderTok) return; box.innerHTML = errorCard(e, e.code !== 'not_found'); const r = $('[data-retry]', box); r && r.addEventListener('click', () => { box.innerHTML = loadingHtml(); load(); }); });
   load();
   box.addEventListener('click', e => {
@@ -248,6 +295,16 @@ route(/^\/u\/([A-Za-z0-9_]{1,40})$/, (v, [login]) => {
     if (dl && user) { const s = user.sets.find(x => x.id === dl.dataset.dl); if (s) downloadJson(`lynx-${user.login}-${s.name || s.id}`, { format: 'lynx.set', version: 1, author: '@' + user.login, ...s }); }
     if (cp && user) { const s = user.sets.find(x => x.id === cp.dataset.copyset); if (s) { Sets.save({ ...s, id: uid('set'), public: false, from: '@' + user.login, created: Date.now() }); toast(tr('Saved to your sets', 'Сохранено в твои наборы')); } }
     if (e.target.closest('[data-mod]') && user) openModDialog(user, () => { box.innerHTML = loadingHtml(); load(); });
+    const fb = e.target.closest('[data-fr]');
+    if (fb && user) (async () => {
+      const op = fb.dataset.fr;
+      if (op === 'remove' && !(await confirmDlg(tr(`Remove @${user.login} from friends?`, `Удалить @${user.login} из друзей?`)))) return;
+      busyBtn(fb, true);
+      try { const j = await api('friends', { method: 'POST', body: { op, login: user.login } }); user.rel = j.rel; toast({ add: tr('Request sent', 'Заявка отправлена'), accept: tr('You are friends now', 'Теперь вы друзья'), cancel: tr('Request cancelled', 'Заявка отменена'), remove: tr('Removed from friends', 'Удалено из друзей') }[op] || tr('Done', 'Готово')); load(); }
+      catch (ex) { toast(errText(ex)); busyBtn(fb, false); }
+    })();
+    const dmb = e.target.closest('[data-dm]');
+    if (dmb && user) (async () => { busyBtn(dmb, true); try { const j = await api('chat', { method: 'POST', body: { op: 'dm', login: user.login } }); location.hash = '#/chat/' + j.id; } catch (ex) { toast(errText(ex)); busyBtn(dmb, false); } })();
     const ds = e.target.closest('[data-delset]');
     if (ds && user) { const s = user.sets.find(x => x.id === ds.dataset.delset); modAsk({ title: tr('Remove this public set?', 'Удалить этот публичный набор?'), text: s ? `«${s.name || s.id}» · @${user.login}` : '', ok: tr('Remove', 'Удалить'), danger: true, run: reason => api('mod', { method: 'POST', body: { login: user.login, action: 'del_set', setId: ds.dataset.delset, reason } }), done: () => { toast(tr('The set was removed', 'Набор удалён')); box.innerHTML = loadingHtml(); load(); } }); }
   });
@@ -256,10 +313,12 @@ route(/^\/u\/([A-Za-z0-9_]{1,40})$/, (v, [login]) => {
 route(/^\/me$/, v => {
   if (!Auth.user) { goHash('#/login?next=' + encodeURIComponent('#/me')); return { title: t('auth.login') }; }
   const u = Auth.user;
+  const prem = !!u.premium, lockI = prem ? '' : `<i class="pm-lock" aria-hidden="true">${ic('gem')}</i>`;
   v.innerHTML = `<div class="page me-page">${pageHead(`${ic('user')} @${esc(u.login)}`, null, null, tr('Edit profile', 'Редактирование профиля'))}
+  ${meTabsHtml('profile')}
   <div class="grid g2 me-grid">
    <form class="glass panel me-card" data-pf novalidate><h2 class="grp-title">${ic('user')} ${esc(tr('Profile', 'Профиль'))}</h2>
-    <div class="av-edit">${avatarHtml(u, 96, 'me-av')}<div class="stack"><label class="pill pill-sm pill-white file-btn">${ic('camera')} ${esc(tr('Upload photo', 'Загрузить фото'))}<input type="file" accept="image/*" data-avfile hidden></label>${u.avatar ? `<button type="button" class="txt-btn" data-avrm>${ic('trash')} ${esc(tr('Remove photo', 'Удалить фото'))}</button>` : ''}<p class="faint" style="font-size:12.5px;margin:0">${esc(tr('JPG, PNG or WebP. It will be cropped to a square.', 'JPG, PNG или WebP. Фото обрежется до квадрата.'))}</p></div></div>
+    <div class="av-edit">${avatarHtml(u, 96, 'me-av')}<div class="stack"><label class="pill pill-sm pill-white file-btn">${ic('camera')} ${esc(tr('Upload photo', 'Загрузить фото'))}<input type="file" accept="image/*" data-avfile hidden></label>${u.avatar ? `<button type="button" class="txt-btn" data-avrm>${ic('trash')} ${esc(tr('Remove photo', 'Удалить фото'))}</button>` : ''}<p class="faint" style="font-size:12.5px;margin:0">${esc(tr('JPG, PNG or WebP – you choose the crop.', 'JPG, PNG или WebP – обрезку выберешь сам.'))} ${prem ? esc(tr('Animated GIFs work too.', 'Анимированные GIF тоже подойдут.')) : `<a href="#/premium" class="pm-link">${ic('gem')} ${esc(tr('GIF with Premium', 'GIF – с Premium'))}</a>`}</p></div></div>
     ${fld({ name: 'nick', label: tr('Nickname', 'Ник'), icon: 'user', value: u.nick, max: 32 })}
     <div class="fld" data-f="bio"><label class="fld-l" for="f-bio">${esc(tr('About me', 'О себе'))}</label><div class="fld-in ta">${ic('note')}<textarea class="inp" id="f-bio" name="bio" maxlength="200" rows="3" placeholder="${esc(tr('Target band, favourite skill, exam date…', 'Цель, любимый навык, дата экзамена…'))}">${esc(u.bio || '')}</textarea><span class="fld-cnt">${[...(u.bio || '')].length}/200</span></div><p class="fld-msg"></p></div>
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('save')} ${esc(t('profile.save'))}</button><a class="pill pill-outline" href="#/u/${esc(u.login)}">${ic('eye')} ${esc(tr('View profile', 'Открыть профиль'))}</a></div></form>
@@ -268,11 +327,15 @@ route(/^\/me$/, v => {
     <div class="look-sec"><h3 class="look-h">${esc(tr('Banner', 'Баннер'))}</h3><div class="look-opts" role="radiogroup" aria-label="${esc(tr('Banner', 'Баннер'))}">
      <button type="button" role="radio" class="bn-opt" data-bn="" aria-checked="${!u.banner}"><span class="bn-sw bn-def"></span><small>${esc(tr('Default', 'Обычный'))}</small></button>
      ${BANNER_P.map(p => `<button type="button" role="radio" class="bn-opt" data-bn="p:${p}" aria-checked="${u.banner === 'p:' + p}"><span class="bn-sw bn-${p}"></span><small>${esc(tr(...BANNER_N[p]))}</small></button>`).join('')}
-     <label class="bn-opt bn-up" data-bnup aria-checked="${u.banner === 'img'}"><span class="bn-sw">${ic('image')}</span><small>${esc(tr('Upload', 'Загрузить'))}</small><input type="file" accept="image/jpeg,image/png,image/webp" data-bnfile class="sr-only"></label></div>
-     <p class="faint look-note">${esc(tr('Your picture is cropped to 3:1 (1200 × 400).', 'Картинка обрежется до 3:1 (1200 × 400).'))}</p></div>
+     ${BANNER_X.map(p => `<button type="button" role="radio" class="bn-opt pm-opt${prem ? '' : ' locked'}" data-bn="p:${p}" data-prem aria-checked="${u.banner === 'p:' + p}"><span class="bn-sw bn-${p} bn-x"></span><small>${esc(tr(...BANNER_N[p]))}</small>${lockI}</button>`).join('')}
+     <label class="bn-opt bn-up" data-bnup aria-checked="false"><span class="bn-sw">${ic('image')}</span><small>${esc(tr('Upload', 'Загрузить'))}</small><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-bnfile class="sr-only"></label></div>
+     <p class="faint look-note">${esc(tr('Your picture is cropped to 3:1 (1200 × 400).', 'Картинка обрежется до 3:1 (1200 × 400).'))} ${prem ? esc(tr('GIF banners stay animated.', 'GIF-баннеры остаются анимированными.')) : ''}</p></div>
     <div class="look-sec"><h3 class="look-h">${esc(tr('Avatar frame', 'Рамка аватара'))}</h3><div class="look-opts" role="radiogroup" aria-label="${esc(tr('Avatar frame', 'Рамка аватара'))}">
      <button type="button" role="radio" class="fr-opt" data-fr="" aria-checked="${!u.frame}">${avatarHtml({ ...u, frame: null }, 48)}<small>${esc(tr('None', 'Без рамки'))}</small></button>
-     ${FRAME_P.map(fr => `<button type="button" role="radio" class="fr-opt" data-fr="${fr}" aria-checked="${u.frame === fr}">${avatarHtml({ ...u, frame: fr }, 48)}<small>${esc(tr(...FRAME_N[fr]))}</small></button>`).join('')}</div></div></section>
+     ${FRAME_P.map(fr => `<button type="button" role="radio" class="fr-opt" data-fr="${fr}" aria-checked="${u.frame === fr}">${avatarHtml({ ...u, frame: fr }, 48)}<small>${esc(tr(...FRAME_N[fr]))}</small></button>`).join('')}
+     ${FRAME_X.map(fr => `<button type="button" role="radio" class="fr-opt pm-opt${prem ? '' : ' locked'}" data-fr="${fr}" data-prem aria-checked="${u.frame === fr}">${avatarHtml({ ...u, frame: fr }, 48)}<small>${esc(tr(...FRAME_N[fr]))}</small>${lockI}</button>`).join('')}</div>
+     ${prem ? '' : `<p class="faint look-note"><a href="#/premium" class="pm-link">${ic('gem')} ${esc(tr('Cosmic, Prism, Galaxy and Hologram come with Premium', 'Космос, Призма, Галактика и Голограмма – с Premium'))}</a></p>`}</div></section>
+   ${badgeEditorHtml(u)}
    <form class="glass panel me-card" data-sf novalidate><h2 class="grp-title">${ic('link')} ${esc(tr('Social links', 'Соцсети'))}</h2><p class="faint" style="margin:0;font-size:13px">${esc(tr('Paste a link or a username. The links appear in your public profile.', 'Вставь ссылку или ник – они появятся в публичном профиле.'))}</p>
     ${SOC.map(([k, n]) => fld({ name: 's_' + k, label: n, icon: k, value: (u.socials || {})[k] || '', ph: { discord: tr('username or user ID', 'ник или ID'), github: 'username', telegram: '@username', tiktok: '@username' }[k], extra: 'maxlength="100" inputmode="url"' })).join('')}
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('save')} ${esc(t('profile.save'))}</button></div></form>
@@ -305,32 +368,36 @@ route(/^\/me$/, v => {
     if (!pwf.old.value) return setMsg(pwf, 'old', tr('Enter the current password', 'Введи текущий пароль'));
     if (!pwOk(pwf.password.value)) return setMsg(pwf, 'password', errText({ code: 'pw_weak' }));
     if (pwf.password.value !== pwf.password2.value) return setMsg(pwf, 'password2', errText({ code: 'pw_mismatch' }));
-    withBusy(pwf, async () => { try { await api('password', { method: 'POST', body: { old: pwf.old.value, password: pwf.password.value } }); pwf.reset(); bindPwRules(pwf, pwf.password); toast(tr('Password changed', 'Пароль изменён')); } catch (ex) { setMsg(pwf, ex.code === 'pw_weak' ? 'password' : 'old', errText(ex)); } }); });
+    withBusy(pwf, async () => { try { const wrap = await E2E.rewrap(pwf.old.value, pwf.password.value); await api('password', { method: 'POST', body: { old: pwf.old.value, password: pwf.password.value, ...(wrap ? { wrap } : {}) } }); pwf.reset(); bindPwRules(pwf, pwf.password); toast(tr('Password changed', 'Пароль изменён')); } catch (ex) { setMsg(pwf, ex.code === 'pw_weak' ? 'password' : 'old', errText(ex)); } }); });
   $('[data-avfile]', v).addEventListener('change', async e => {
-    const file = e.target.files && e.target.files[0]; if (!file) return;
-    try { const url = await squareJpeg(file, 192); await patch({ avatar: url }); toast(tr('Photo updated', 'Фото обновлено')); render({ instant: true }); }
+    const file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
+    try { const url = await pickImage(file, 'avatar'); if (!url) return; await patch({ avatar: url }); toast(tr('Photo updated', 'Фото обновлено')); render({ instant: true }); }
     catch (ex) { toast(errText(ex.code ? ex : { code: 'avatar_bad' })); }
   });
+  bindBadgeEditor(v);
   /* appearance */
   const look = $('[data-look]', v);
   const paintLook = me => {
     $('[data-lcov]', look).innerHTML = coverHtml(me.banner); $('[data-lav]', look).innerHTML = avatarHtml(me, 76);
-    const isImg = !!me.banner && /^data:/.test(me.banner);
+    const isImg = !!me.banner && /^(data:|\/api\/)/.test(me.banner);
     $$('[data-bn]', look).forEach(b => b.setAttribute('aria-checked', String((b.dataset.bn || null) === (isImg ? '__' : me.banner || null))));
     $('[data-bnup]', look).setAttribute('aria-checked', String(isImg));
     $$('[data-fr]', look).forEach(b => b.setAttribute('aria-checked', String((b.dataset.fr || null) === (me.frame || null))));
   };
   let lookCur = { ...u, banner: u.banner === 'img' ? null : u.banner };
+  paintLook(lookCur);
   api('user', { q: { login: u.login } }).then(j => { if (j.user && document.contains(look)) { lookCur = { ...lookCur, banner: j.user.banner, frame: j.user.frame }; paintLook(lookCur); } }).catch(() => { });
-  const lookSave = async (body, b) => { look.classList.add('busy'); try { const nu = await patch(body); lookCur = { ...lookCur, ...nu, banner: 'banner' in body ? body.banner : lookCur.banner }; paintLook(lookCur); toast(t('profile.saved')); } catch (ex) { toast(errText(ex)); } finally { look.classList.remove('busy'); } };
+  const lookSave = async (body, b) => { look.classList.add('busy'); try { const nu = await patch(body); lookCur = { ...lookCur, ...nu }; paintLook(lookCur); toast(t('profile.saved')); } catch (ex) { toast(errText(ex)); } finally { look.classList.remove('busy'); } };
   look.addEventListener('click', e => {
     const bn = e.target.closest('[data-bn]'), fr = e.target.closest('[data-fr]');
+    const lk = (bn || fr) && (bn || fr).classList.contains('locked');
+    if (lk) { premNudge(); return; }
     if (bn && bn.getAttribute('aria-checked') !== 'true') lookSave({ banner: bn.dataset.bn || null });
     if (fr && fr.getAttribute('aria-checked') !== 'true') lookSave({ frame: fr.dataset.fr || null });
   });
   $('[data-bnfile]', look).addEventListener('change', async e => {
     const file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
-    try { const url = await bannerJpeg(file); await lookSave({ banner: url }); } catch (ex) { toast(errText({ code: 'banner_bad' })); }
+    try { const url = await pickImage(file, 'banner'); if (url) await lookSave({ banner: url }); } catch (ex) { toast(errText(ex.code ? ex : { code: 'banner_bad' })); }
   });
   /* socials */
   const sf = $('[data-sf]', v); bindFields(sf);
@@ -345,7 +412,7 @@ route(/^\/me$/, v => {
   $('[data-delacc]', v).addEventListener('click', () => {
     openDialog({ title: tr('Delete the account?', 'Удалить аккаунт?'), body: `<p class="muted">${esc(tr('The profile, saved results and public sets will be deleted for ever. Enter the password to confirm.', 'Профиль, сохранённые результаты и публичные наборы удалятся навсегда. Введи пароль для подтверждения.'))}</p><form data-df novalidate>${fld({ name: 'pw', label: tr('Password', 'Пароль'), icon: 'lock', type: 'password', auto: 'current-password', eye: true })}</form>`,
       actions: `<button class="pill pill-outline" data-close>${esc(tr('Cancel', 'Отмена'))}</button><button class="pill pill-danger" data-okdel><span class="spin" aria-hidden="true"></span>${ic('trash')} ${esc(tr('Delete', 'Удалить'))}</button>`,
-      onOpen: (d, close) => { const df = $('[data-df]', d); bindFields(df); df.pw.focus(); const go = async e => { e && e.preventDefault(); const b = $('[data-okdel]', d); busyBtn(b, true); try { await api('delete', { method: 'POST', body: { password: df.pw.value } }); close('ok'); Sync.clearLocal(); Auth.setUser(null); toast(tr('The account has been deleted', 'Аккаунт удалён')); location.hash = '#/'; } catch (ex) { setMsg(df, 'pw', errText(ex)); } finally { busyBtn(b, false); } }; df.addEventListener('submit', go); $('[data-okdel]', d).addEventListener('click', go); } });
+      onOpen: (d, close) => { const df = $('[data-df]', d); bindFields(df); df.pw.focus(); const go = async e => { e && e.preventDefault(); const b = $('[data-okdel]', d); busyBtn(b, true); try { await api('delete', { method: 'POST', body: { password: df.pw.value } }); close('ok'); E2E.forget(u.login); Sync.clearLocal(); Auth.setUser(null); toast(tr('The account has been deleted', 'Аккаунт удалён')); location.hash = '#/'; } catch (ex) { setMsg(df, 'pw', errText(ex)); } finally { busyBtn(b, false); } }; df.addEventListener('submit', go); $('[data-okdel]', d).addEventListener('click', go); } });
   });
   return { title: tr('Edit profile', 'Редактирование профиля'), nav: 'me', relang: true, auth: true };
 });

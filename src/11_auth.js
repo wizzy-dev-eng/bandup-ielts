@@ -45,6 +45,18 @@ const ERR = {
   frame_bad: ['Unknown frame.', 'Неизвестная рамка.'],
   text_bad: ['Write the text first.', 'Сначала напиши текст.'],
   reset_state: ['The request has not been approved yet.', 'Запрос ещё не одобрен.'],
+  ip_banned: ['Access from this network is blocked.', 'Доступ из этой сети заблокирован.'],
+  tfa_bad: ['Wrong code. Check the time on your phone and try again.', 'Неверный код. Проверь время на телефоне и попробуй ещё раз.'],
+  tfa_expired: ['The sign-in took too long. Enter the password again.', 'Вход занял слишком много времени. Введи пароль ещё раз.'],
+  tfa_on: ['Two-step verification is already on.', 'Двухэтапная проверка уже включена.'],
+  tfa_off: ['Two-step verification is off.', 'Двухэтапная проверка выключена.'],
+  premium: ['This is a Premium feature.', 'Это функция Premium.'],
+  privacy: ['This user’s privacy settings do not allow it.', 'Настройки приватности пользователя этого не позволяют.'],
+  chat_gone: ['This chat is no longer available.', 'Этот чат больше недоступен.'],
+  too_long: ['The message is too long (up to 2000 characters).', 'Сообщение слишком длинное (до 2000 символов).'],
+  title_bad: ['Group name: 1–48 characters.', 'Название группы: от 1 до 48 символов.'],
+  group_full: ['The group is full (50 members).', 'В группе уже 50 участников.'],
+  key_exists: ['The encryption key already exists.', 'Ключ шифрования уже создан.'],
   bad: ['Something is wrong with the request.', 'Что-то не так с запросом.']
 };
 const fmtDate = (d, long) => new Date(d).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB', long ? { day: 'numeric', month: 'long', year: 'numeric' } : undefined);
@@ -57,7 +69,7 @@ function errText(e) {
 }
 const hashHue = s => { let h = 7; for (const c of String(s)) h = (h * 31 + c.codePointAt(0)) >>> 0; return h % 360; };
 function avatarHtml(u, size = 32, cls = '') {
-  if (u && size >= 40 && /^(glow|gold|aurora|ice|neon)$/.test(u.frame || '')) cls += ` fr fr-${u.frame}`;
+  if (u && size >= 40 && /^(glow|gold|aurora|ice|neon|cosmic|prism)$/.test(u.frame || '')) cls += ` fr fr-${u.frame}`;
   if (u && u.avatar) return `<span class="av ${cls}" style="--s:${size}px"><img src="${esc(u.avatar)}" alt="" width="${size}" height="${size}" decoding="async"></span>`;
   const n = String((u && (u.nick || u.login)) || '?').trim() || '?';
   return `<span class="av av-def ${cls}" style="--s:${size}px;--h:${hashHue((u && u.login) || n)}" aria-hidden="true">${esc([...n][0].toUpperCase())}</span>`;
@@ -114,24 +126,34 @@ const Auth = {
   setUser(u) {
     const was = this.user && this.user.login;
     this.user = u ? { login: u.login, nick: u.nick, avatar: u.avatar || null, bio: u.bio || '', email: u.email || '', created: u.created, nextLoginChange: u.nextLoginChange || null,
-      role: u.role || 'user', badges: Array.isArray(u.badges) ? u.badges : [], frame: u.frame || null, socials: u.socials || {}, banner: u.banner && !/^data:/.test(u.banner) ? u.banner : (u.banner ? 'img' : null) } : null;
+      role: u.role || 'user', badges: Array.isArray(u.badges) ? u.badges : [], frame: u.frame || null, socials: u.socials || {}, banner: u.banner && !/^data:/.test(u.banner) ? u.banner : null,
+      premium: u.premium || null, bt: u.bt || null, tfa: !!u.tfa, privacy: u.privacy || null, e2e: !!u.e2e } : null;
     if (this.user) _sset(HINT, this.user); else { _sdel(HINT); this.unread = { n: 0 }; }
     renderAuth(); if (was !== (this.user && this.user.login)) emit('auth', this.user);
   },
   unread: { n: 0 },
-  get staff() { return !!this.user && (this.user.role === 'admin' || this.user.role === 'owner'); },
-  setUnread(x) { if (!x || typeof x !== 'object') return; this.unread = { n: Number(x.n) || 0, staff: x.staff || null }; paintBell(); emit('unread', this.unread); },
+  get staff() { return !!this.user && ['admin', 'coowner', 'owner'].includes(this.user.role); },
+  get premium() { return !!(this.user && this.user.premium); },
+  setUnread(x) { if (!x || typeof x !== 'object') return; this.unread = { n: Number(x.n) || 0, chat: Number(x.chat) || 0, staff: x.staff || null }; paintBell(); emit('unread', this.unread); },
   pollUnread() { if (!this.user || document.visibilityState !== 'visible') return; api('unread').then(j => this.setUnread(j)).catch(e => { if (e.status === 401) this.refresh(); }); },
   async refresh() {
     this.lastCheck = Date.now();
     try { const j = await api('me'); if (j.user) { this.setUser(j.user); this.setUnread(j.unread); Sync.fromServer(j.data, j.ts); } else if (this.user) { this.setUser(null); Sync.clearLocal(); } }
     catch (e) { if (e.code === 'no_api' && this.user) this.setUser(null); }
   },
-  async login(id, password) { const j = await api('login', { method: 'POST', body: { id, password } }); this.setUser(j.user); this.setUnread(j.unread); await Sync.merge(j.data, j.ts); return j.user; },
-  async signup(f) { const j = await api('signup', { method: 'POST', body: { ...f, data: Sync.local() } }); Sync.st = { dirty: false, ts: j.ts }; Sync.save(); this.setUser(j.user); return j.user; },
+  /* returns the user, or { tfa: true, ticket } when a second step is needed */
+  async login(id, password) {
+    const j = await api('login', { method: 'POST', body: { id, password } });
+    if (j.tfa) return { tfa: true, ticket: j.ticket };
+    return this.finish(j, password);
+  },
+  async login2(ticket, code, password) { const j = await api('login2', { method: 'POST', body: { ticket, code } }); return this.finish(j, password); },
+  async finish(j, password) { this.setUser(j.user); this.setUnread(j.unread); E2E.setup(j.user.login, password); await Sync.merge(j.data, j.ts); return j.user; },
+  async signup(f) { const j = await api('signup', { method: 'POST', body: { ...f, data: Sync.local() } }); Sync.st = { dirty: false, ts: j.ts }; Sync.save(); this.setUser(j.user); if (j.unread) this.setUnread(j.unread); E2E.setup(j.user.login, f.password); return j.user; },
   async logout() {
     await Sync.flush().catch(() => { });
     try { await api('logout', { method: 'POST', body: {} }); } catch (e) { }
+    const l = this.user && this.user.login; if (l) E2E.forget(l);
     Sync.clearLocal(); this.setUser(null); toast(tr('You have logged out', 'Ты вышел из аккаунта')); location.hash = '#/';
   }
 };
@@ -149,15 +171,20 @@ function renderAuth() {
   const slot = $('#authSlot'), sh = $('#sheetAuth'); if (!slot) return;
   const u = Auth.user;
   if (u) {
-    slot.innerHTML = `<a class="av-pill" href="#/u/${esc(u.login)}" aria-label="${esc(t('auth.myProfile'))}" data-tip="${esc(t('auth.myProfile'))}">${avatarHtml(u, 30)}<span class="nm">${esc(u.nick || u.login)}</span></a><a class="icon-btn nt-btn" href="#/notifications" data-bell data-tip="${esc(tr('Notifications', 'Уведомления'))}" aria-label="${esc(bellLabel(0))}">${ic('bell')}<b class="nt-n" aria-hidden="true"></b></a>`;
-    if (sh) sh.innerHTML = `<a class="pill pill-glass" href="#/u/${esc(u.login)}">${avatarHtml(u, 24)}<span>${esc(t('auth.myProfile'))}</span></a><a class="pill pill-glass nt-sheet" href="#/notifications" data-bell aria-label="${esc(bellLabel(0))}">${ic('bell')}<span>${esc(tr('Notifications', 'Уведомления'))}</span><b class="nt-n" aria-hidden="true"></b></a>${Auth.staff ? `<a class="pill pill-glass" href="#/admin">${ic('shield')}<span>${esc(tr('Admin panel', 'Админ-панель'))}</span></a>` : ''}<button type="button" class="pill pill-outline" data-logout>${ic('logout')}<span>${esc(t('auth.logout'))}</span></button>`;
+    slot.innerHTML = `<a class="av-pill" href="#/u/${esc(u.login)}" aria-label="${esc(t('auth.myProfile'))}" data-tip="${esc(t('auth.myProfile'))}">${avatarHtml(u, 30)}<span class="nm">${esc(u.nick || u.login)}</span></a>${premBtnHtml(u)}<a class="icon-btn nt-btn" href="#/notifications" data-bell data-tip="${esc(tr('Notifications', 'Уведомления'))}" aria-label="${esc(bellLabel(0))}">${ic('bell')}<b class="nt-n" aria-hidden="true"></b></a>`;
+    if (sh) sh.innerHTML = `<a class="pill pill-glass" href="#/u/${esc(u.login)}">${avatarHtml(u, 24)}<span>${esc(t('auth.myProfile'))}</span></a><a class="pill pill-glass nt-sheet" href="#/notifications" data-bell aria-label="${esc(bellLabel(0))}">${ic('bell')}<span>${esc(tr('Notifications', 'Уведомления'))}</span><b class="nt-n" aria-hidden="true"></b></a><a class="pill pill-glass" href="#/chat">${ic('chat')}<span>${esc(tr('Chats', 'Чаты'))}</span></a><a class="pill pill-glass pm-sheet" href="#/premium">${ic('gem')}<span>Premium</span></a>${Auth.staff ? `<a class="pill pill-glass" href="#/admin">${ic('shield')}<span>${esc(tr('Admin panel', 'Админ-панель'))}</span></a>` : ''}<button type="button" class="pill pill-outline" data-logout>${ic('logout')}<span>${esc(t('auth.logout'))}</span></button>`;
     paintBell();
   } else {
     slot.innerHTML = `<a class="pill pill-sm pill-ghost auth-in" href="#/login">${esc(t('auth.login'))}</a><a class="pill pill-sm pill-white auth-up" href="#/signup">${esc(t('auth.signup'))}</a>`;
     if (sh) sh.innerHTML = `<a class="pill pill-white" href="#/signup">${ic('userPlus')}<span>${esc(t('auth.signup'))}</span></a><a class="pill pill-outline" href="#/login">${ic('login')}<span>${esc(t('auth.login'))}</span></a>`;
   }
+  paintFab();
 }
 on('lang', renderAuth);
+function premBtnHtml(u) {
+  const p = u && u.premium, tip = p ? tr('Premium is active', 'Premium активен') : 'Premium';
+  return `<a class="icon-btn pm-btn${p ? ' on' : ''}" href="#/premium" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><svg class="ic pm-gem" viewBox="0 0 24 24" aria-hidden="true"><path class="g1" d="M6.5 4h11l4 5L12 20.5 2.5 9z"/><path class="g2" d="M2.5 9h19M9.6 4 8 9l4 11.5L16 9l-1.6-5"/></svg><i class="pm-sp s1"></i><i class="pm-sp s2"></i><i class="pm-sp s3"></i></a>`;
+}
 document.addEventListener('click', e => { if (e.target.closest('[data-logout]')) { e.preventDefault(); Auth.logout(); } });
-setInterval(() => Auth.pollUnread(), 90000);
+setInterval(() => Auth.pollUnread(), 45000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Auth.user && Date.now() - (Auth.lastCheck || 0) <= 60000) Auth.pollUnread(); });

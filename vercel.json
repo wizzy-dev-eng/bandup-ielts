@@ -8,6 +8,13 @@
           "key": "Cache-Control",
           "value": "no-store"
         }
+      ],
+      "missing": [
+        {
+          "type": "query",
+          "key": "r",
+          "value": "img"
+        }
       ]
     },
     {

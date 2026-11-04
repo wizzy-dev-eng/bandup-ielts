@@ -44,7 +44,7 @@
 .mouse::after{content:'';position:absolute;left:50%;top:7px;width:3px;height:7px;margin-left:-1.5px;border-radius:2px;background:#fff;animation:wheel 1.8s ease-in-out infinite}
 @keyframes wheel{0%{opacity:0;transform:translateY(-2px)}30%{opacity:1}100%{opacity:0;transform:translateY(9px)}}
 /* entrance */
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;translate:0 14px}to{opacity:1;translate:none}}
 .entering .rise{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,0)*120ms)}
 .entering .chips .chip{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,6)*120ms)}
 @media (max-aspect-ratio:8/5){.entering .chips .chip{animation-name:rise}}

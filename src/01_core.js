@@ -150,8 +150,10 @@ function openDialog({ title, body, actions = '', wide = false, onOpen, onClose, 
     if (reduced() || (typeof ecoOn === 'function' && ecoOn())) return dlg.close(v);
     dlg.classList.add('closing'); setTimeout(() => dlg.close(v), 190);
   };
+  const h0 = location.hash, onHash = () => { if (location.hash !== h0) close(''); };
+  window.addEventListener('hashchange', onHash);
   dlg.addEventListener('cancel', e => { e.preventDefault(); close(''); });
-  dlg.addEventListener('close', () => { onClose && onClose(dlg.returnValue); dlg.remove(); if (opener && opener.focus && document.contains(opener)) opener.focus(); });
+  dlg.addEventListener('close', () => { window.removeEventListener('hashchange', onHash); onClose && onClose(dlg.returnValue); dlg.remove(); if (opener && opener.focus && document.contains(opener)) opener.focus(); });
   dlg.addEventListener('click', e => { if (e.target === dlg) close(''); if (e.target.closest('[data-close]')) close(''); });
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   onOpen && onOpen(dlg, close);

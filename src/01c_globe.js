@@ -19,7 +19,15 @@ const Globe = (() => {
     return { ...geomFromPlate((vw - w) / 2, vh - w * 941 / 1672, w), a: (curTheme() === 'light' ? .44 : .42) * fade, mask: 1 };
   }
   function target() {
-    if (mode === 'hero' && heroEl && heroEl.isConnected) { const p = heroEl.getBoundingClientRect(); return { ...geomFromPlate(p.left, p.top, p.width), a: 1, mask: 0 }; }
+    if (mode === 'hero' && heroEl && heroEl.isConnected) {
+      /* the globe stays where the hero put it and melts into the page backdrop while the hero scrolls away */
+      const p = heroEl.getBoundingClientRect(), y = Math.max(0, scrollY), hero = heroEl.closest('.hero'), hh = (hero && hero.offsetHeight) || innerHeight;
+      const x = Math.min(1, y / (hh * .9)), e = x * x * (3 - 2 * x), g0 = geomFromPlate(p.left, p.top + y, p.width);
+      if (hero && hero.__ge !== e) { hero.__ge = e; hero.style.setProperty('--ge', e.toFixed(3)); }
+      if (e <= 0) return { ...g0, a: 1, mask: 0 };
+      const bk = backdropGeom();
+      return { cx: lerp(g0.cx, bk.cx, e), cy: lerp(g0.cy, bk.cy, e), r: lerp(g0.r, bk.r, e), a: lerp(1, bk.a, e), mask: e };
+    }
     return backdropGeom();
   }
   function bodyLayer(r) {
@@ -103,9 +111,11 @@ const Globe = (() => {
       ctx.rect(cx + R * X - .45 * k, cy - R * Y2 - .45 * k, .9 * k, .9 * k);
     }
     ctx.fill();
-    if (gm.mask) {
+    const m = Math.min(1, Math.max(0, gm.mask || 0));
+    if (m >= .01) {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in';
-      const vh = innerHeight * dpr, mg = ctx.createLinearGradient(0, 0, 0, cv.height); mg.addColorStop(0, 'rgba(0,0,0,0)'); mg.addColorStop(.3 * vh / cv.height, 'rgba(0,0,0,.55)'); mg.addColorStop(.62 * vh / cv.height, 'rgba(0,0,0,1)'); mg.addColorStop(.84 * vh / cv.height, 'rgba(0,0,0,.78)'); mg.addColorStop(1, 'rgba(0,0,0,0)');
+      const vh = innerHeight * dpr, q = v => `rgba(0,0,0,${v.toFixed(3)})`, mg = ctx.createLinearGradient(0, 0, 0, cv.height);
+      mg.addColorStop(0, q(1 - m)); mg.addColorStop(Math.min(1, .3 * vh / cv.height), q(1 - .45 * m)); mg.addColorStop(Math.min(1, .62 * vh / cv.height), q(1)); mg.addColorStop(Math.min(1, .84 * vh / cv.height), q(1 - .22 * m)); mg.addColorStop(1, q(1 - m));
       ctx.fillStyle = mg; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = 'source-over';
     }
     ctx.globalAlpha = 1; return true;
@@ -115,7 +125,7 @@ const Globe = (() => {
     raf = 0;
     const tg = target();
     let gm = tg;
-    if (tr < 1) { tr = Math.min(1, (now - trStart) / 700); const e = 1 - Math.pow(1 - tr, 3); gm = { cx: lerp(from.cx, tg.cx, e), cy: lerp(from.cy, tg.cy, e), r: lerp(from.r, tg.r, e), a: lerp(from.a, tg.a, e), mask: tg.mask }; }
+    if (tr < 1) { tr = Math.min(1, (now - trStart) / 700); const e = 1 - Math.pow(1 - tr, 3); gm = { cx: lerp(from.cx, tg.cx, e), cy: lerp(from.cy, tg.cy, e), r: lerp(from.r, tg.r, e), a: lerp(from.a, tg.a, e), mask: lerp(from.mask || 0, tg.mask || 0, e) }; }
     const animate = !fxOff() && !document.hidden;
     if (animate) spin = (now / 1000) * (Math.PI * 2 / 110);
     let vis = true;

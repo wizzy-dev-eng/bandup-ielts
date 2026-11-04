@@ -10,6 +10,9 @@ function searchIndex() {
   const nk = { home: 'main start главная начало домой', practice: 'tasks library exercises практика задания библиотека упражнения', builder: 'constructor generator set конструктор генератор набор', variants: 'mock tests exam варианты пробники тесты экзамен', guide: 'exam guide info format справочник гид формат экзамен', progress: 'results stats history прогресс результаты статистика история' };
   NAV.forEach(([k, h, l]) => add('sections', k, t(l), '', h, nk[k] + ' ' + D.i18n.en[l] + ' ' + (D.i18n.ru[l] || '')));
   add('sections', 'about', t('nav.about'), tr('Aim, objectives, author', 'Цель, задачи, автор'), '#/about', 'about project research author aim о проекте исследование автор цель');
+  add('sections', 'gem', 'Premium', tr('Plans, perks, 100 places forever', 'Тарифы, возможности, 100 мест навсегда'), '#/premium', 'premium plans price subscription gif frames banners премиум тарифы цена подписка рамки баннеры');
+  add('sections', 'doc', tr('Privacy policy', 'Политика конфиденциальности'), tr('How we handle your data', 'Как мы обращаемся с данными'), '#/privacy', 'privacy policy data personal конфиденциальность политика данные персональные');
+  add('sections', 'mail', tr('Contact us', 'Связаться с нами'), tr('How to reach the team', 'Как связаться с командой'), '#/contact', 'contact support feedback связаться поддержка обратная связь');
   add('sections', 'people', t('people.title'), tr('Find other learners', 'Найти других учеников'), '#/people', 'people users profiles community люди пользователи профили');
   GUIDE_TABS.forEach(id => add('sections', 'guide', t('guide.' + id), t('nav.guide'), '#/guide/' + id, D.i18n.en['guide.' + id] + ' ' + (D.i18n.ru['guide.' + id] || '') + (id === 'scoring' ? ' band score оценка баллы' : id === 'history' ? ' история' : id === 'compare' ? ' огэ егэ oge use' : '')));
   add('sections', 'calc', t('calc.title'), tr('Average of four skills → overall band', 'Среднее по четырём навыкам → общий балл'), () => openCalc(), 'band calculator overall score калькулятор балл общий');
@@ -28,6 +31,8 @@ function searchIndex() {
   if (Auth.user) {
     add('sections', 'user', t('auth.myProfile'), '@' + Auth.user.login, '#/u/' + Auth.user.login, 'my profile account avatar мой профиль аккаунт');
     add('settings', 'pen', tr('Edit profile', 'Редактировать профиль'), tr('Avatar, nickname, login, password', 'Аватар, ник, логин, пароль'), '#/me', 'edit profile avatar nickname login password редактировать аватар ник логин пароль');
+    add('sections', 'chat', tr('Chats', 'Чаты'), tr('Global chat, groups, private messages', 'Общий чат, группы, личные сообщения'), '#/chat', 'chat messages friends dm group чат сообщения друзья личка группа переписка');
+    add('settings', 'shieldLock', tr('Privacy & security', 'Приватность и безопасность'), tr('Sessions, two-step verification, who can write to me', 'Сеансы, двухэтапная проверка, кто может писать'), '#/me/security', 'privacy security 2fa two-step sessions devices encryption приватность безопасность сеансы устройства шифрование двухэтапная');
     add('settings', 'logout', t('auth.logout'), '@' + Auth.user.login, () => Auth.logout(), 'logout sign out exit выйти выход');
   } else {
     add('sections', 'userPlus', t('auth.signup'), tr('Create an account', 'Создать аккаунт'), '#/signup', 'sign up register account регистрация аккаунт создать');

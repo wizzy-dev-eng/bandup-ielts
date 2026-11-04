@@ -39,7 +39,7 @@ function shellHtml() {
 }
 function footerHtml() {
   return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand" href="#/">${brandHtml()}</a>
-  <nav aria-label="${esc(t('aria.footer'))}"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a><a href="#/services">${T('foot.services')}</a><button type="button" class="foot-lnk" data-cookies>${T('foot.cookies')}</button></nav></div>
+  <nav aria-label="${esc(t('aria.footer'))}"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a><a href="#/services">${T('foot.services')}</a><a href="#/privacy">${esc(tr('Privacy policy', 'Политика конфиденциальности'))}</a><a href="#/contact">${esc(tr('Contact us', 'Связаться с нами'))}</a><button type="button" class="foot-lnk" data-cookies>${T('foot.cookies')}</button></nav></div>
   <p>${T('common.footer')}</p><p>${esc(D.meta.note)}</p></footer>`;
 }
 function initShell() {
@@ -248,7 +248,9 @@ addEventListener('hashchange', async () => {
     const ok = await confirmDlg(lang === 'ru' ? 'Покинуть задание? Ответы будут потеряны.' : 'Leave this task? Your answers will be lost.');
     if (!ok) return; leaveGuard = null; location.hash = target; return;
   }
-  lastHash = location.hash; render();
+  lastHash = location.hash;
+  if (curMeta && typeof curMeta.soft === 'function' && curMeta.softRe) { const { path, q } = parseHash(), m = path.match(curMeta.softRe); if (m && curMeta.soft(m.slice(1), q) !== false) return; }
+  render();
 });
 addEventListener('beforeunload', e => { if (leaveGuard && leaveGuard()) { e.preventDefault(); e.returnValue = ''; } });
 function setQuery(q) { const { path } = parseHash(); const s = q.toString(); const h = '#' + path + (s ? '?' + s : ''); history.replaceState(null, '', h); lastHash = h; }
