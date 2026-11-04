@@ -4484,7 +4484,7 @@ function badgesHtml(u, small) {
   const b = Array.isArray(u.badges) ? u.badges : [], out = [];
   const tag = (cls, icon, label, tip) => `<span class="bdg ${cls}${small ? ' sm' : ''}" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(label + ' – ' + tip)}">${icon}<span>${esc(label)}</span></span>`;
   if (b.includes('wizzy')) out.push(tag('bdg-wizzy', lynxMark(), 'wizzy', tr('Creator of lynx.', 'Создатель lynx.')));
-  if (b.includes('lead_dev')) out.push(tag('bdg-dev', ic('code'), 'Lead dev', tr('Lead developer of the site', 'Ведущий разработчик сайта')));
+  if (b.includes('lead_dev')) out.push(tag('bdg-dev', ic('code'), 'Lead Developer', tr('Lead developer of the site', 'Ведущий разработчик сайта')));
   if (u.role === 'owner' && !b.includes('wizzy')) out.push(tag('bdg-owner', ic('crown'), tr('Owner', 'Владелец'), tr('Owner of the site', 'Владелец сайта')));
   if (u.role === 'admin') out.push(tag('bdg-admin', ic('shield'), tr('Admin', 'Админ'), tr('Administrator: keeps the community safe', 'Администратор: следит за порядком')));
   if (u.banned) out.push(tag('bdg-ban', ic('ban'), tr('Blocked', 'Заблокирован'), tr('This account is blocked', 'Этот аккаунт заблокирован')));
@@ -4706,7 +4706,7 @@ function relTime(d) {
   return fmtDate(d, true);
 }
 const FIELD_N = { nick: ['nickname', 'ник'], bio: ['“About me”', '«О себе»'] };
-const BADGE_N = { wizzy: 'wizzy', lead_dev: 'Lead dev' };
+const BADGE_N = { wizzy: 'wizzy', lead_dev: 'Lead Developer' };
 function noteView(n) {
   const d = n.data || {}, by = d.by ? '@' + d.by : tr('the administration', 'администрация');
   const L = (en, ru) => tr(en, ru);

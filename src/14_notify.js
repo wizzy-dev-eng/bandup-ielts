@@ -8,7 +8,7 @@ function relTime(d) {
   return fmtDate(d, true);
 }
 const FIELD_N = { nick: ['nickname', 'ник'], bio: ['“About me”', '«О себе»'] };
-const BADGE_N = { wizzy: 'wizzy', lead_dev: 'Lead dev' };
+const BADGE_N = { wizzy: 'wizzy', lead_dev: 'Lead Developer' };
 function noteView(n) {
   const d = n.data || {}, by = d.by ? '@' + d.by : tr('the administration', 'администрация');
   const L = (en, ru) => tr(en, ru);
