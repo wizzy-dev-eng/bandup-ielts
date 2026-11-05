@@ -122,6 +122,7 @@ route(/^\/login$/, (v, _, q) => {
     try {
       const u = await Auth.login(f.id.value.trim(), pw);
       if (u && u.tfa) { tfaStep(u.ticket, pw); return; }
+      if (u && u.sq) { sqStep(u.ticket, pw, u.question, f); return; }
       toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login;
     }
     catch (ex) { err.textContent = errText(ex); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
@@ -152,11 +153,34 @@ route(/^\/login$/, (v, _, q) => {
       e.preventDefault(); if (busy) return; err.textContent = '';
       const c = code(); if (!useRc && c.length !== 6) { err.textContent = tr('Enter all 6 digits', 'Введи все 6 цифр'); return; } if (useRc && c.replace(/[^a-z0-9]/gi, '').length !== 8) { err.textContent = tr('The recovery code looks like xxxx-xxxx', 'Код восстановления выглядит как xxxx-xxxx'); return; }
       const b = $('.auth-submit', card); busy = true; busyBtn(b, true);
-      try { const u = await Auth.login2(ticket, c, pw); toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login; }
+      try { const u = await Auth.login2(ticket, c, pw); if (u && u.sq) { sqStep(u.ticket, pw, u.question, card); return; } toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login; }
       catch (ex) { err.textContent = errText(ex); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); if (!useRc) { cells.forEach(x => { x.value = ''; }); cells[0].focus(); } if (ex.code === 'tfa_expired') setTimeout(() => render({ instant: true }), 1600); }
       finally { busy = false; busyBtn(b, false); }
     });
     setTimeout(() => cells[0].focus(), 60);
+  };
+  /* owner only: the security question after the password and 2FA */
+  const sqStep = (ticket, pw, question, from) => {
+    const card = document.createElement('form'); card.className = 'glass auth-card tfa-card sq-card'; card.noValidate = true;
+    card.innerHTML = `<span class="tfa-ic" aria-hidden="true">${ic('key')}</span><h1 class="display page-title"><span class="grad">${esc(tr('Security question', 'Контрольный вопрос'))}</span></h1>
+    <p class="muted">${esc(tr('One more step for this account. Answer your own question.', 'Ещё один шаг для этого аккаунта. Ответь на свой вопрос.'))}</p>
+    <p class="sq-q">${ic('help')}<b>${esc(question || '—')}</b></p>
+    ${fld({ name: 'ans', label: tr('Answer', 'Ответ'), icon: 'lock', type: 'password', eye: true, auto: 'off', extra: 'spellcheck="false" autocapitalize="off" maxlength="200" required' })}
+    <p class="form-err" data-err role="alert"></p>
+    <button class="pill pill-white auth-submit" type="submit"><span class="spin" aria-hidden="true"></span>${ic('check')}<span>${esc(tr('Confirm', 'Подтвердить'))}</span></button>
+    <p class="auth-alt"><a href="#/login" data-back>${esc(tr('Back', 'Назад'))}</a></p>`;
+    from.replaceWith(card); bindFields(card);
+    const err = $('[data-err]', card); let busy = false;
+    $('[data-back]', card).addEventListener('click', e => { e.preventDefault(); render({ instant: true }); });
+    card.addEventListener('submit', async e => {
+      e.preventDefault(); if (busy) return; err.textContent = '';
+      const a = card.ans.value.trim(); if (!a) { err.textContent = tr('Write the answer', 'Напиши ответ'); card.ans.focus(); return; }
+      const b = $('.auth-submit', card); busy = true; busyBtn(b, true);
+      try { const u = await Auth.login3(ticket, a, pw); toast(tr(`Hi, ${u.nick}!`, `Привет, ${u.nick}!`)); location.hash = q.get('next') || '#/u/' + u.login; }
+      catch (ex) { err.textContent = errText(ex); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); card.ans.select(); if (ex.code === 'tfa_expired' || ex.code === 'locked') setTimeout(() => render({ instant: true }), 1800); }
+      finally { busy = false; busyBtn(b, false); }
+    });
+    setTimeout(() => card.ans.focus(), 60);
   };
   return { title: t('auth.login'), nav: 'login', relang: true };
 });
@@ -251,20 +275,22 @@ function profileHtml(u, me) {
   const bars = SKILL_KEYS.map(k => { const x = sk[k] || { n: 0 }; const pct = x.best != null ? x.best : Math.min(100, (x.n || 0) * 20); return `<div class="sbar"><span class="sb-l">${SKILL[k].icon}${T('skill.' + k)}</span><span class="sb-t"><i style="--w:${pct}%"></i></span><span class="sb-v">${x.best != null ? x.best + '%' : x.n ? x.n + '×' : '—'}</span></div>`; }).join('');
   const sets = u.sets || [], canDel = !!(mod && mod.canModerate);
   const showMod = !!(mod && (mod.canModerate || mod.canRole || mod.canBadges) && !me);
-  return `<section class="prof glass${u.banned ? ' is-banned' : ''}" style="--h:${hashHue(u.login)}">${coverHtml(u.banner)}
+  const pc = /^#[0-9a-f]{6}$/i.test(u.color || '') ? u.color : '';
+  return `<div class="prof-wrap${pc ? ' has-pc' : ''}"${pc ? ` style="--pc:${pc}"` : ''}><section class="prof glass${u.banned ? ' is-banned' : ''}" style="--h:${hashHue(u.login)}">${coverHtml(u.banner)}
   <div class="prof-main">${avatarHtml(u, 116, 'prof-av')}
-    <div class="prof-id"><h1 class="display page-title" tabindex="-1">${esc(u.nick)}</h1><p class="prof-login"><span>@${esc(u.login)}</span>${badgesHtml(u)}</p></div>
+    <div class="prof-id"><h1 class="display page-title" tabindex="-1">${esc(u.nick)}</h1>${u.title && ACH_D[u.title] ? `<p class="prof-ttl">${titleHtml(u.title)}</p>` : ''}<p class="prof-login"><span>@${esc(u.login)}</span>${badgesHtml(u)}</p></div>
     <div class="prof-side"><div class="prof-acts">${me ? `<a class="pill pill-white pill-sm" href="#/me">${ic('pen')} ${esc(tr('Edit profile', 'Редактировать'))}</a><button type="button" class="pill pill-outline pill-sm" data-logout>${ic('logout')} ${esc(t('auth.logout'))}</button>` : `${socialBtnsHtml(u)}<button type="button" class="pill pill-glass pill-sm" data-copylink>${ic('link')} ${esc(tr('Copy link', 'Скопировать ссылку'))}</button>`}${showMod ? `<button type="button" class="pill pill-outline pill-sm mod-btn" data-mod>${ic('shield')} ${esc(tr('Moderate', 'Модерация'))}</button>` : ''}${me && isStaffU(u) ? `<a class="pill pill-outline pill-sm mod-btn" href="#/admin">${ic('shield')} ${esc(tr('Admin panel', 'Админ-панель'))}</a>` : ''}</div>
     ${socialsHtml(u.socials)}</div></div>
   ${u.banned && mod ? `<p class="prof-ban">${ic('ban')} ${esc(tr('Blocked', 'Заблокирован'))} ${mod.bannedUntil && /^9999/.test(mod.bannedUntil) ? esc(tr('forever', 'навсегда')) : mod.bannedUntil ? esc(tr('until ', 'до ') + fmtDate(mod.bannedUntil, true)) : ''}${mod.banReason ? ' · ' + esc(banReasonText(mod.banReason)) : ''}</p>` : ''}
   ${u.bio ? `<p class="prof-bio">${esc(u.bio)}</p>` : me ? `<p class="prof-bio faint">${esc(tr('Add a few words about yourself in the profile settings.', 'Добавь пару слов о себе в настройках профиля.'))}</p>` : ''}
-  <div class="prof-meta"><span>${ic('calendar')} ${esc(tr('Joined', 'С нами с'))} ${fmtDate(u.created, true)}</span>${u.seen ? `<span>${ic('clock')} ${esc(tr('Active', 'Активность'))}: ${fmtDate(u.seen, true)}</span>` : ''}${s.level ? `<span>${ic('target')} ${esc(tr('Level', 'Уровень'))} ${esc(s.level)}</span>` : ''}</div></section>
+  <div class="prof-meta"><span>${ic('calendar')} ${esc(tr('Joined', 'С нами с'))} ${fmtDate(u.created, true)}</span>${u.seen ? `<span>${ic('clock')} ${esc(tr('Active', 'Активность'))}: ${fmtDate(u.seen, true)}</span>` : ''}${s.level ? `<span>${ic('target')} ${esc(tr('Level', 'Уровень'))} ${esc(s.level)}</span>` : ''}</div>${u.music ? `<div class="prof-music">${mpHtml(u.music, 'mp-prof')}</div>` : ''}</section>
   <div class="grid g4 prof-stats">${stat('chart', s.attempts || 0, tr('attempts', 'попыток'))}${stat('practice', `${s.tasks || 0}/12`, tr('tasks done', 'заданий пройдено'))}${stat('variants', s.variants || 0, tr('variants finished', 'вариантов пройдено'))}${stat('layers', sets.length, tr('public sets', 'публичных наборов'))}</div>
+  ${u.spotify ? `<section class="sec prof-spot"><div class="glass panel"><h2 class="grp-title">${ic('spotify')} Spotify</h2>${spotifyHtml(u.spotify)}</div></section>` : ''}
   <section class="sec"><div class="grid g2 prof-row"><div class="glass panel"><h2 class="grp-title">${ic('chart')} ${esc(tr('Skills', 'Навыки'))}</h2><p class="faint" style="margin:4px 0 14px;font-size:13px">${esc(tr('Best result in Listening and Reading, number of attempts in Writing and Speaking.', 'Лучший результат в Listening и Reading, число попыток в Writing и Speaking.'))}</p><div class="sbars">${bars}</div></div>
   <div class="glass panel"><h2 class="grp-title">${ic('star')} ${esc(tr('Recent activity', 'Последние результаты'))}</h2>${(s.recent || []).length ? `<ul class="recent">${s.recent.map(r => { const nm = recentName(r); return `<li><span class="em">${nm[0]}</span><span class="rt"><b>${nm[1]}</b><small>${fmtDate(r.date)}</small></span>${r.total ? `<span class="lp">${r.score}/${r.total}</span>` : ''}</li>`; }).join('')}</ul>` : `<p class="muted">${esc(tr('No results yet.', 'Пока нет результатов.'))}</p>`}</div></div></section>
-  ${achievementsHtml()}
+  ${achievementsHtml(u)}
   <section class="sec"><div class="sec-head"><span class="glass-pill">${ic('layers')} ${esc(tr('Showcase', 'Витрина'))}</span><h2 class="sec-title display"><span class="grad">${esc(tr('Public sets', 'Публичные наборы'))}</span></h2>${me ? `<p class="muted">${esc(tr('Open the builder and press the eye button on a saved set to show it here.', 'Открой конструктор и нажми на «глаз» у сохранённого набора, чтобы показать его здесь.'))}</p>` : ''}</div>
-  ${sets.length ? `<div class="grid g3">${sets.map(x => setCard(x, me, canDel)).join('')}</div>` : `<div class="glass empty"><div class="em em-lg">${ic('layers')}</div><p>${esc(me ? tr('You have no public sets yet.', 'У тебя пока нет публичных наборов.') : tr('No public sets yet.', 'Публичных наборов пока нет.'))}</p>${me ? `<a class="pill pill-white pill-sm" href="#/builder">${ic('builder')} ${T('nav.builder')}</a>` : ''}</div>`}</section>`;
+  ${sets.length ? `<div class="grid g3">${sets.map(x => setCard(x, me, canDel)).join('')}</div>` : `<div class="glass empty"><div class="em em-lg">${ic('layers')}</div><p>${esc(me ? tr('You have no public sets yet.', 'У тебя пока нет публичных наборов.') : tr('No public sets yet.', 'Публичных наборов пока нет.'))}</p>${me ? `<a class="pill pill-white pill-sm" href="#/builder">${ic('builder')} ${T('nav.builder')}</a>` : ''}</div>`}</section></div>`;
 }
 function socialBtnsHtml(u) {
   if (!Auth.user || !u.rel) return '';
@@ -285,8 +311,8 @@ route(/^\/u\/([A-Za-z0-9_]{1,40})$/, (v, [login]) => {
   const box = $('[data-pv]', v), tok = renderTok;
   let user = null;
   const load = () => api('user', { q: { login } }).then(j => {
-    if (tok !== renderTok) return; user = j.user; box.innerHTML = profileHtml(user, me); document.title = `${D.meta.brand} – ${user.nick} (@${user.login})`;
-    if (me && Auth.user && (Auth.user.avatar !== user.avatar || Auth.user.nick !== user.nick || Auth.user.role !== user.role || Auth.user.frame !== user.frame || !!Auth.user.premium !== !!user.premium || JSON.stringify(Auth.user.bt || null) !== JSON.stringify(user.bt || null))) Auth.setUser({ ...Auth.user, avatar: user.avatar, nick: user.nick, role: user.role, badges: user.badges, frame: user.frame, socials: user.socials, banner: user.banner, premium: user.premium, bt: user.bt });
+    if (tok !== renderTok) return; user = j.user; box.innerHTML = profileHtml(user, me); mpState(); mpPaint(); document.title = `${D.meta.brand} – ${user.nick} (@${user.login})`;
+    if (me && Auth.user && (Auth.user.avatar !== user.avatar || Auth.user.nick !== user.nick || Auth.user.role !== user.role || Auth.user.frame !== user.frame || !!Auth.user.premium !== !!user.premium || JSON.stringify(Auth.user.bt || null) !== JSON.stringify(user.bt || null) || (Auth.user.color || null) !== (user.color || null) || (Auth.user.title || null) !== (user.title || null) || (Auth.user.spotify || null) !== (user.spotify || null) || JSON.stringify(Auth.user.music || null) !== JSON.stringify(user.music || null) || JSON.stringify(Auth.user.ach || []) !== JSON.stringify(user.ach || []))) Auth.setUser({ ...Auth.user, avatar: user.avatar, nick: user.nick, role: user.role, badges: user.badges, frame: user.frame, socials: user.socials, banner: user.banner, premium: user.premium, bt: user.bt, color: user.color, title: user.title, spotify: user.spotify, music: user.music, ach: user.ach });
   }).catch(e => { if (tok !== renderTok) return; box.innerHTML = errorCard(e, e.code !== 'not_found'); const r = $('[data-retry]', box); r && r.addEventListener('click', () => { box.innerHTML = loadingHtml(); load(); }); });
   load();
   box.addEventListener('click', e => {
@@ -313,17 +339,17 @@ route(/^\/u\/([A-Za-z0-9_]{1,40})$/, (v, [login]) => {
 route(/^\/me$/, v => {
   if (!Auth.user) { goHash('#/login?next=' + encodeURIComponent('#/me')); return { title: t('auth.login') }; }
   const u = Auth.user;
-  const prem = !!u.premium, lockI = prem ? '' : `<i class="pm-lock" aria-hidden="true">${ic('gem')}</i>`;
+  const prem = !!u.premium, lockI = prem ? '' : `<i class="pm-lock" aria-hidden="true">${ic('crown')}</i>`;
   v.innerHTML = `<div class="page me-page">${pageHead(`${ic('user')} @${esc(u.login)}`, null, null, tr('Edit profile', 'Редактирование профиля'))}
   ${meTabsHtml('profile')}
   <div class="grid g2 me-grid">
    <form class="glass panel me-card" data-pf novalidate><h2 class="grp-title">${ic('user')} ${esc(tr('Profile', 'Профиль'))}</h2>
-    <div class="av-edit">${avatarHtml(u, 96, 'me-av')}<div class="stack"><label class="pill pill-sm pill-white file-btn">${ic('camera')} ${esc(tr('Upload photo', 'Загрузить фото'))}<input type="file" accept="image/*" data-avfile hidden></label>${u.avatar ? `<button type="button" class="txt-btn" data-avrm>${ic('trash')} ${esc(tr('Remove photo', 'Удалить фото'))}</button>` : ''}<p class="faint" style="font-size:12.5px;margin:0">${esc(tr('JPG, PNG or WebP – you choose the crop.', 'JPG, PNG или WebP – обрезку выберешь сам.'))} ${prem ? esc(tr('Animated GIFs work too.', 'Анимированные GIF тоже подойдут.')) : `<a href="#/premium" class="pm-link">${ic('gem')} ${esc(tr('GIF with Premium', 'GIF – с Premium'))}</a>`}</p></div></div>
+    <div class="av-edit">${avatarHtml(u, 96, 'me-av')}<div class="stack"><label class="pill pill-sm pill-white file-btn">${ic('camera')} ${esc(tr('Upload photo', 'Загрузить фото'))}<input type="file" accept="image/*" data-avfile hidden></label>${u.avatar ? `<button type="button" class="txt-btn" data-avrm>${ic('trash')} ${esc(tr('Remove photo', 'Удалить фото'))}</button>` : ''}<p class="faint" style="font-size:12.5px;margin:0">${esc(tr('JPG, PNG or WebP – you choose the crop.', 'JPG, PNG или WebP – обрезку выберешь сам.'))} ${prem ? esc(tr('Animated GIFs work too.', 'Анимированные GIF тоже подойдут.')) : `<a href="#/premium" class="pm-link">${ic('crown')} ${esc(tr('GIF with Premium', 'GIF – с Premium'))}</a>`}</p></div></div>
     ${fld({ name: 'nick', label: tr('Nickname', 'Ник'), icon: 'user', value: u.nick, max: 32 })}
-    <div class="fld" data-f="bio"><label class="fld-l" for="f-bio">${esc(tr('About me', 'О себе'))}</label><div class="fld-in ta">${ic('note')}<textarea class="inp" id="f-bio" name="bio" maxlength="200" rows="3" placeholder="${esc(tr('Target band, favourite skill, exam date…', 'Цель, любимый навык, дата экзамена…'))}">${esc(u.bio || '')}</textarea><span class="fld-cnt">${[...(u.bio || '')].length}/200</span></div><p class="fld-msg"></p></div>
+    <div class="fld" data-f="bio"><label class="fld-l" for="f-bio">${esc(tr('About me', 'О себе'))}</label><div class="fld-in ta">${ic('note')}<textarea class="inp ta-grow" id="f-bio" name="bio" maxlength="200" rows="3" placeholder="${esc(tr('Target band, favourite skill, exam date…', 'Цель, любимый навык, дата экзамена…'))}">${esc(u.bio || '')}</textarea><span class="fld-cnt">${[...(u.bio || '')].length}/200</span></div><p class="fld-msg"></p></div>
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('save')} ${esc(t('profile.save'))}</button><a class="pill pill-outline" href="#/u/${esc(u.login)}">${ic('eye')} ${esc(tr('View profile', 'Открыть профиль'))}</a></div></form>
    <section class="glass panel me-card me-look" data-look><h2 class="grp-title">${ic('palette')} ${esc(tr('Appearance', 'Оформление'))}</h2>
-    <div class="look-prev" data-lprev><div data-lcov>${coverHtml(u.banner && u.banner !== 'img' ? u.banner : null)}</div><div class="look-pav" data-lav>${avatarHtml(u, 76)}</div><div class="look-pid"><b>${esc(u.nick)}</b><span>@${esc(u.login)}</span></div></div>
+    <div class="look-prev${u.color ? ' has-pc' : ''}" data-lprev${u.color ? ` style="--pc:${u.color}"` : ''}><div data-lcov>${coverHtml(u.banner && u.banner !== 'img' ? u.banner : null)}</div><div class="look-pav" data-lav>${avatarHtml(u, 76)}</div><div class="look-pid"><b>${esc(u.nick)}</b><span>@${esc(u.login)}</span></div></div>
     <div class="look-sec"><h3 class="look-h">${esc(tr('Banner', 'Баннер'))}</h3><div class="look-opts" role="radiogroup" aria-label="${esc(tr('Banner', 'Баннер'))}">
      <button type="button" role="radio" class="bn-opt" data-bn="" aria-checked="${!u.banner}"><span class="bn-sw bn-def"></span><small>${esc(tr('Default', 'Обычный'))}</small></button>
      ${BANNER_P.map(p => `<button type="button" role="radio" class="bn-opt" data-bn="p:${p}" aria-checked="${u.banner === 'p:' + p}"><span class="bn-sw bn-${p}"></span><small>${esc(tr(...BANNER_N[p]))}</small></button>`).join('')}
@@ -334,8 +360,11 @@ route(/^\/me$/, v => {
      <button type="button" role="radio" class="fr-opt" data-fr="" aria-checked="${!u.frame}">${avatarHtml({ ...u, frame: null }, 48)}<small>${esc(tr('None', 'Без рамки'))}</small></button>
      ${FRAME_P.map(fr => `<button type="button" role="radio" class="fr-opt" data-fr="${fr}" aria-checked="${u.frame === fr}">${avatarHtml({ ...u, frame: fr }, 48)}<small>${esc(tr(...FRAME_N[fr]))}</small></button>`).join('')}
      ${FRAME_X.map(fr => `<button type="button" role="radio" class="fr-opt pm-opt${prem ? '' : ' locked'}" data-fr="${fr}" data-prem aria-checked="${u.frame === fr}">${avatarHtml({ ...u, frame: fr }, 48)}<small>${esc(tr(...FRAME_N[fr]))}</small>${lockI}</button>`).join('')}</div>
-     ${prem ? '' : `<p class="faint look-note"><a href="#/premium" class="pm-link">${ic('gem')} ${esc(tr('Cosmic, Prism, Galaxy and Hologram come with Premium', 'Космос, Призма, Галактика и Голограмма – с Premium'))}</a></p>`}</div></section>
+     ${prem ? '' : `<p class="faint look-note"><a href="#/premium" class="pm-link">${ic('crown')} ${esc(tr('Cosmic, Prism, Galaxy and Hologram come with Premium', 'Космос, Призма, Галактика и Голограмма – с Premium'))}</a></p>`}</div>
+    <div class="look-sec"><h3 class="look-h">${esc(tr('Profile colour', 'Цвет профиля'))}</h3>${cwHtml(u.color)}<p class="faint look-note">${esc(tr('The colour tints the glass of your public profile with a soft gradient.', 'Цвет мягким градиентом окрашивает стекло твоего публичного профиля.'))}</p></div>
+    ${titlePickHtml(u)}</section>
    ${badgeEditorHtml(u)}
+   ${musicCardHtml(u)}
    <form class="glass panel me-card" data-sf novalidate><h2 class="grp-title">${ic('link')} ${esc(tr('Social links', 'Соцсети'))}</h2><p class="faint" style="margin:0;font-size:13px">${esc(tr('Paste a link or a username. The links appear in your public profile.', 'Вставь ссылку или ник – они появятся в публичном профиле.'))}</p>
     ${SOC.map(([k, n]) => fld({ name: 's_' + k, label: n, icon: k, value: (u.socials || {})[k] || '', ph: { discord: tr('username or user ID', 'ник или ID'), github: 'username', telegram: '@username', tiktok: '@username' }[k], extra: 'maxlength="100" inputmode="url"' })).join('')}
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('save')} ${esc(t('profile.save'))}</button></div></form>
@@ -399,6 +428,17 @@ route(/^\/me$/, v => {
     const file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
     try { const url = await pickImage(file, 'banner'); if (url) await lookSave({ banner: url }); } catch (ex) { toast(errText(ex.code ? ex : { code: 'banner_bad' })); }
   });
+  /* colour and title */
+  const lprev = $('[data-lprev]', look);
+  const pcLive = hex => { lprev.classList.toggle('has-pc', !!hex); hex ? lprev.style.setProperty('--pc', hex) : lprev.style.removeProperty('--pc'); };
+  bindCw(look, u.color, pcLive, async hex => { try { const nu = await patch({ color: hex }); pcLive(nu.color); toast(hex ? t('profile.saved') : tr('The default colour is back', 'Вернули обычный цвет')); } catch (ex) { toast(errText(ex)); } });
+  look.addEventListener('click', async e => {
+    const tb = e.target.closest('[data-ttl]'); if (!tb) return;
+    if (tb.classList.contains('locked')) { toast(tb.dataset.tip || errText({ code: 'title_locked' })); return; }
+    if (tb.getAttribute('aria-checked') === 'true') return;
+    try { const nu = await patch({ title: tb.dataset.ttl || null }); $$('[data-ttl]', look).forEach(b => b.setAttribute('aria-checked', String((b.dataset.ttl || null) === (nu.title || null)))); toast(nu.title ? tr(`Title: ${achName(nu.title)}`, `Титул: ${achName(nu.title)}`) : tr('The title is hidden', 'Титул скрыт')); }
+    catch (ex) { toast(errText(ex)); }
+  });
   /* socials */
   const sf = $('[data-sf]', v); bindFields(sf);
   const SOC_OK = { discord: /^(?:\d{17,20}|[a-z0-9_.]{2,32})$/, github: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, telegram: /^[A-Za-z][A-Za-z0-9_]{3,31}$/, tiktok: /^[A-Za-z0-9_.]{2,24}$/ };
@@ -414,6 +454,8 @@ route(/^\/me$/, v => {
       actions: `<button class="pill pill-outline" data-close>${esc(tr('Cancel', 'Отмена'))}</button><button class="pill pill-danger" data-okdel><span class="spin" aria-hidden="true"></span>${ic('trash')} ${esc(tr('Delete', 'Удалить'))}</button>`,
       onOpen: (d, close) => { const df = $('[data-df]', d); bindFields(df); df.pw.focus(); const go = async e => { e && e.preventDefault(); const b = $('[data-okdel]', d); busyBtn(b, true); try { await api('delete', { method: 'POST', body: { password: df.pw.value } }); close('ok'); E2E.forget(u.login); Sync.clearLocal(); Auth.setUser(null); toast(tr('The account has been deleted', 'Аккаунт удалён')); location.hash = '#/'; } catch (ex) { setMsg(df, 'pw', errText(ex)); } finally { busyBtn(b, false); } }; df.addEventListener('submit', go); $('[data-okdel]', d).addEventListener('click', go); } });
   });
+  const relayout = msAttach($('.me-grid', v));
+  bindMusicCard(v, relayout);
   return { title: tr('Edit profile', 'Редактирование профиля'), nav: 'me', relang: true, auth: true };
 });
 function squareJpeg(file, size) {

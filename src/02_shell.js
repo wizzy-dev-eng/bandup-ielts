@@ -1,17 +1,17 @@
 /* ---------- shell: nav, sheet, footer ---------- */
-const NAV = [['home', '#/', 'nav.home'], ['practice', '#/practice', 'nav.practice'], ['builder', '#/builder', 'nav.builder'], ['variants', '#/variants', 'nav.variants'], ['guide', '#/guide/format', 'nav.guide'], ['progress', '#/progress', 'nav.progress']];
+const NAV = [['home', '#/', 'nav.home'], ['practice', '#/practice', 'nav.practice'], ['builder', '#/builder', 'nav.builder'], ['variants', '#/variants', 'nav.variants'], ['guide', '#/guide/format', 'nav.guide'], ['progress', '#/progress', 'nav.progress'], ['chat', '#/chat', 'nav.chat']];
 const MEDIA = D.meta.media;
 /* extra UI strings (aria labels etc.), kept here so applyLang() can switch them */
-const I18X = { 'aria.main': ['Main', 'Основная навигация'], 'aria.menu': ['Menu', 'Меню'], 'aria.lang': ['Language', 'Язык'], 'aria.footer': ['Footer', 'Подвал сайта'], 'aria.home': ['home', 'главная'], 'foot.services': ['Our services', 'Наши сервисы'], 'foot.cookies': ['Cookies', 'Файлы cookie'], 'set.fs_s': ['Small', 'Мелкий'], 'set.fs_m': ['Normal', 'Обычный'], 'set.fs_l': ['Large', 'Крупный'], 'set.fs_xl': ['Extra large', 'Очень крупный'] };
+const I18X = { 'nav.chat': ['Connect', 'Connect'], 'aria.main': ['Main', 'Основная навигация'], 'aria.menu': ['Menu', 'Меню'], 'aria.lang': ['Language', 'Язык'], 'aria.footer': ['Footer', 'Подвал сайта'], 'aria.home': ['home', 'главная'], 'foot.services': ['Our services', 'Наши сервисы'], 'foot.cookies': ['Cookies', 'Файлы cookie'], 'set.fs_s': ['Small', 'Мелкий'], 'set.fs_m': ['Normal', 'Обычный'], 'set.fs_l': ['Large', 'Крупный'], 'set.fs_xl': ['Extra large', 'Очень крупный'] };
 Object.entries(I18X).forEach(([k, [e, r]]) => { D.i18n.en[k] = e; if (D.i18n.ru) D.i18n.ru[k] = r; });
 function stillImg(cls = '') { return `<img class="${cls}" src="${esc(MEDIA.still.local)}" data-remote="${esc(MEDIA.still.remote)}" alt="" width="${MEDIA.still.width}" height="${MEDIA.still.height}" decoding="async">`; }
 function fixImgFallback(root) { $$('img[data-remote]', root).forEach(img => { const f = () => { if (img.src !== img.dataset.remote) img.src = img.dataset.remote; }; img.addEventListener('error', f, { once: true }); if (img.complete && img.naturalWidth === 0) f(); }); }
 function shellHtml() {
   return `<a class="skip" href="#main" data-i18n="common.skip">${lang === 'ru' ? 'К содержанию' : 'Skip to content'}</a>
 <header class="nav" id="nav">
-  <div class="nav-row">
+  <div class="nav-row"><div class="ny-garland" aria-hidden="true"></div>
     <a class="brand" href="#/" aria-label="${esc(D.meta.brand)} – ${esc(t('aria.home'))}">${brandHtml()}</a>
-    <nav class="nav-links" data-i18n-label="aria.main" aria-label="${esc(t('aria.main'))}"><span class="nav-ind" aria-hidden="true"></span>${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}">${T(l)}</a>`).join('')}</nav>
+    <nav class="nav-links" data-i18n-label="aria.main" aria-label="${esc(t('aria.main'))}"><span class="nav-ind" aria-hidden="true"></span>${NAV.map(([k, h, l]) => `<a href="${h}" data-nav="${k}"${k === 'chat' ? ' class="nav-cn"' : ''}>${T(l)}${k === 'chat' ? '<b class="cn-n" data-cn aria-hidden="true"></b>' : ''}</a>`).join('')}</nav>
     <div class="nav-right">
       <div class="lang"><button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" data-i18n-label="nav.lang" aria-label="${esc(t('nav.lang'))}">${ic('globe')}<span class="lc">${lang.toUpperCase()}</span>${ic('chev', 'chev')}</button>
         <div class="lang-menu" id="langMenu" role="menu" hidden><button role="menuitemradio" data-lang="en" aria-checked="${lang === 'en'}"><span>English · EN</span><span class="mchk">${ic('check', 'draw')}</span></button><button role="menuitemradio" data-lang="ru" aria-checked="${lang === 'ru'}"><span>Русский · RU</span><span class="mchk">${ic('check', 'draw')}</span></button></div></div>
@@ -24,8 +24,7 @@ function shellHtml() {
 </header>
 <div class="sheet" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" data-i18n-label="aria.menu" aria-label="${esc(t('aria.menu'))}">
   <div class="sheet-top"><a class="brand" href="#/">${brandHtml()}</a><button class="icon-btn" id="sheetClose" data-i18n-label="nav.close" aria-label="${esc(t('nav.close'))}">${ic('x')}</button></div>
-  ${NAV.map(([k, h, l]) => `<a class="sl" href="${h}" data-nav="${k}">${ic(k)}${T(l)}</a>`).join('')}
-  <a class="sl" href="#/about" data-nav="about">${ic('about')}${T('nav.about')}</a>
+  ${NAV.map(([k, h, l]) => `<a class="sl" href="${h}" data-nav="${k}">${ic(k)}${T(l)}${k === 'chat' ? '<b class="cn-n" data-cn aria-hidden="true"></b>' : ''}</a>`).join('')}
   <a class="sl" href="#/people" data-nav="people">${ic('people')}<span data-i18n="people.title">${esc(t('people.title'))}</span></a>
   <div class="seg" role="group" data-i18n-label="aria.lang" aria-label="${esc(t('aria.lang'))}"><button data-lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="ru" aria-pressed="${lang === 'ru'}">RU</button></div>
   <button class="sl sl-btn" type="button" data-open-settings>${ic('gear')}${T('set.title')}</button>
@@ -38,9 +37,10 @@ function shellHtml() {
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--pink)"/><stop offset="1" style="stop-color:var(--lilac)"/></linearGradient></defs></svg>`;
 }
 function footerHtml() {
-  return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand" href="#/">${brandHtml()}</a>
-  <nav aria-label="${esc(t('aria.footer'))}"><a href="#/about">${T('nav.about')}</a><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a><a href="#/services">${T('foot.services')}</a><a href="#/privacy">${esc(tr('Privacy policy', 'Политика конфиденциальности'))}</a><a href="#/contact">${esc(tr('Contact us', 'Связаться с нами'))}</a><button type="button" class="foot-lnk" data-cookies>${T('foot.cookies')}</button></nav></div>
-  <p>${T('common.footer')}</p><p>${esc(D.meta.note)}</p></footer>`;
+  const y = new Date().getFullYear();
+  return `<footer class="footer"><div class="lightline"><i></i></div><div class="row"><a class="brand foot-brand" href="#/">${brandHtml(true)}<sup class="tm" aria-label="trademark">™</sup></a>
+  <nav aria-label="${esc(t('aria.footer'))}"><a href="#/guide/format">${T('nav.guide')}</a><a href="#/progress">${T('nav.progress')}</a><a href="#/services">${T('foot.services')}</a><a href="#/terms">${esc(tr('Terms of use', 'Правила пользования'))}</a><a href="#/privacy">${esc(tr('Privacy policy', 'Политика конфиденциальности'))}</a><a href="#/copyright">${esc(tr('Copyright', 'Авторские права'))}</a><a href="#/contact">${esc(tr('Contact us', 'Связаться с нами'))}</a><button type="button" class="foot-lnk" data-cookies>${T('foot.cookies')}</button></nav></div>
+  <div class="foot-legal"><p class="foot-c">© ${y} lynx.™ ${esc(tr('All rights reserved.', 'Все права защищены.'))}</p><p>${esc(tr('lynx. and the lynx logo are trademarks of lynx. Content may not be copied without permission. IELTS is a registered trademark of the University of Cambridge, the British Council and IDP Education; this site is not affiliated with them. Practice scores are a guide, not official band scores.', 'lynx. и логотип с рысью – товарные знаки lynx. Копирование материалов без разрешения запрещено. IELTS – зарегистрированный товарный знак Кембриджского университета, Британского совета и IDP Education; сайт с ними не связан. Баллы за практику ориентировочные, это не официальные оценки.'))}</p></div></footer>`;
 }
 function initShell() {
   document.body.insertAdjacentHTML('afterbegin', shellHtml());
@@ -235,6 +235,7 @@ async function render(opts = {}) {
   if (!meta.noFooter) view.insertAdjacentHTML('beforeend', footerHtml());
   fixImgFallback(view);
   setActiveNav(meta.nav || '');
+  paintBrand(meta.nav);
   document.title = `${D.meta.brand} – ${meta.title || ''}`;
   if (meta.nav !== 'home') Globe.setMode('page');
   requestAnimationFrame(() => { view.classList.remove('pre'); });
@@ -258,3 +259,10 @@ function pageHead(labelHtml, titleKey, subKey, titleText) {
   return `<header class="page-head"><span class="glass-pill">${labelHtml}</span><h1 class="page-title display" tabindex="-1"><span class="grad" ${titleKey ? `data-i18n="${titleKey}"` : ''}>${titleKey ? esc(t(titleKey)) : esc(titleText)}</span></h1>${subKey ? `<p class="page-sub">${T(subKey)}</p>` : ''}<div class="lightline"><i></i></div></header>`;
 }
 function notFound(v) { v.innerHTML = `<div class="page"><div class="glass empty"><h1 class="display page-title"><span class="grad">404</span></h1><p>${T('common.notFound')}</p><a class="pill pill-white" href="#/">${T('common.home')}</a></div></div>`; return { title: '404' }; }
+
+/* lynx. → lynx.connect on the Connect pages */
+function paintBrand(nav) {
+  const c = nav === 'chat' || nav === 'people';
+  $$('#nav .brand, .sheet-top .brand').forEach(a => { a.classList.toggle('is-cn', c); const x = $('.bname', a); if (x && !!$('.bcn', x) !== c) x.innerHTML = c ? 'lynx<b>.</b><span class="bcn">connect</span>' : 'lynx<b>.</b>'; });
+  if (typeof paintConnect === 'function') paintConnect();
+}

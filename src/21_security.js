@@ -76,7 +76,8 @@ const PRIV_OPTS = {
 route(/^\/me\/security$/, v => {
   if (!Auth.user) { goHash('#/login?next=' + encodeURIComponent('#/me/security')); return { title: t('auth.login') }; }
   const u = Auth.user;
-  v.innerHTML = `<div class="page me-page sec-page">${pageHead(`${ic('user')} @${esc(u.login)}`, null, null, tr('Privacy & security', 'Приватность и безопасность'))}${meTabsHtml('security')}<div data-sx>${loadingHtml()}</div></div>`;
+  v.innerHTML = `<div class="page me-page sec-page">${pageHead(`${ic('user')} @${esc(u.login)}`, null, null, tr('Privacy & security', 'Приватность и безопасность'))}${meTabsHtml('security')}${pinBarHtml()}<div data-sx>${loadingHtml()}</div></div>`;
+  pinGuard(v);
   const box = $('[data-sx]', v), tok = renderTok; let data = null, hasLocal = false, allSess = false;
   const paint = () => {
     const ss = data.sessions, others = ss.filter(x => !x.current).length, tf = data.tfa, p = data.privacy;
@@ -89,6 +90,7 @@ route(/^\/me\/security$/, v => {
       <div class="sx-state ${tf.on ? 'on' : ''}"><span class="sx-dot"></span><b>${esc(tf.on ? tr('On', 'Включена') : tr('Off', 'Выключена'))}</b></div>
       <p class="muted" style="margin:0">${esc(tf.on ? tr(`After the password we ask for a code from your app. Recovery codes left: ${tf.codes}.`, `После пароля попросим код из приложения. Осталось кодов восстановления: ${tf.codes}.`) : tr('Protect the account with a code from an authenticator app on your phone.', 'Защити аккаунт кодом из приложения-аутентификатора на телефоне.'))}</p>
       <div class="row">${tf.on ? `<button type="button" class="pill pill-glass pill-sm" data-tfcodes>${ic('refresh')} ${esc(tr('New recovery codes', 'Новые коды восстановления'))}</button><button type="button" class="pill pill-outline pill-sm" data-tfoff>${ic('x')} ${esc(tr('Turn off', 'Выключить'))}</button>` : `<button type="button" class="pill pill-white pill-sm" data-tfon>${ic('qr')} ${esc(tr('Turn on', 'Включить'))}</button>`}</div></section>
+    ${pinCardHtml(data)}${sqCardHtml(data)}
     <section class="glass panel me-card sx-priv"><h2 class="grp-title">${ic('chat')} ${esc(tr('Chat & communication', 'Чаты и общение'))}</h2>
       ${Object.entries(PRIV_OPTS).map(([k, [lab, opts, icn]]) => `<div class="sx-pr"><span class="sx-pl">${ic(icn)} ${esc(tr(...lab))}</span><div class="seg sx-seg" role="radiogroup" aria-label="${esc(tr(...lab))}">${opts.map(([val, en, ru]) => `<button type="button" role="radio" data-pk="${k}" data-pv="${val}" aria-checked="${p[k] === val}" aria-pressed="${p[k] === val}">${esc(tr(en, ru))}</button>`).join('')}</div></div>`).join('')}
       <p class="faint" style="margin:0;font-size:12.5px">${esc(tr('The administration can always write to you in the global chat.', 'Администрация всегда может ответить тебе в общем чате.'))}</p></section>
@@ -98,11 +100,11 @@ route(/^\/me\/security$/, v => {
       ${E2E.ok && (!data.e2e || !hasLocal) ? `<form class="row sx-unl" data-unl novalidate>${fld({ name: 'pw', label: tr('Password', 'Пароль'), icon: 'lock', type: 'password', auto: 'current-password', eye: true })}<button class="pill pill-white pill-sm" type="submit"><span class="spin" aria-hidden="true"></span>${ic('lockOpen')} ${esc(data.e2e ? tr('Unlock', 'Разблокировать') : tr('Set up', 'Настроить'))}</button></form>` : ''}
       <p class="faint" style="margin:0;font-size:12.5px"><a href="#/privacy">${esc(tr('How we handle your data', 'Как мы обращаемся с данными'))}</a></p></section></div>`;
     const unl = $('[data-unl]', box); if (unl) bindFields(unl);
-    initSegs(box);
+    initSegs(box); msAttach($('.me-grid', box));
   };
   const load = async () => {
     try { const [sx, keys] = await Promise.all([api('security'), api('keys')]); const loc = await E2E.local(u.login); data = sx; hasLocal = !!loc && !!keys.pub && loc.pub === keys.pub; if (tok !== renderTok) return; paint(); }
-    catch (e) { if (tok !== renderTok) return; box.innerHTML = errorCard(e, true); const r = $('[data-retry]', box); r && r.addEventListener('click', () => { box.innerHTML = loadingHtml(); load(); }); }
+    catch (e) { if (tok !== renderTok) return; if (e.code === 'pin_cancel') { goHash('#/me'); return; } box.innerHTML = errorCard(e, true); const r = $('[data-retry]', box); r && r.addEventListener('click', () => { box.innerHTML = loadingHtml(); load(); }); }
   };
   box.addEventListener('click', async e => {
     const rv = e.target.closest('[data-revoke]'); if (rv) { busyBtn(rv, true); try { await api('security', { method: 'POST', body: { op: 'revoke', id: +rv.dataset.revoke } }); toast(tr('The session was ended', 'Сеанс завершён')); load(); } catch (ex) { toast(errText(ex)); busyBtn(rv, false); } return; }
@@ -111,6 +113,11 @@ route(/^\/me\/security$/, v => {
     if (e.target.closest('[data-tfon]')) return tfaEnableDialog(() => { Auth.setUser({ ...Auth.user, tfa: true }); load(); });
     if (e.target.closest('[data-tfoff]')) return tfaCheckDialog('tfa_disable', () => { Auth.setUser({ ...Auth.user, tfa: false }); load(); });
     if (e.target.closest('[data-tfcodes]')) return tfaCheckDialog('tfa_codes', () => load());
+    if (e.target.closest('[data-pinset]')) return pinSetDialog(!!data.pin.on, () => { const had = Auth.user.pin; Auth.setUser({ ...Auth.user, pin: true }); if (!had) render({ instant: true }); else load(); });
+    if (e.target.closest('[data-pinrm]')) return pwDialog(tr('Remove the PIN', 'Убрать PIN-код'), tr('The admin panel and these settings will open without the PIN.', 'Админ-панель и эти настройки будут открываться без PIN-кода.'), async pw => { await api('pin', { method: 'POST', body: { op: 'remove', password: pw } }); Auth.setUser({ ...Auth.user, pin: false }); toast(tr('The PIN was removed', 'PIN-код убран')); render({ instant: true }); });
+    if (e.target.closest('[data-pinrs]')) return pinResetDialog(() => render({ instant: true }));
+    if (e.target.closest('[data-sqset]')) return sqDialog(data.sq, () => load());
+    if (e.target.closest('[data-sqoff]')) return pwDialog(tr('Turn off the security question', 'Выключить контрольный вопрос'), tr('The login will need only the password and the 2FA code.', 'Для входа будут нужны только пароль и код 2FA.'), async pw => { await api('security', { method: 'POST', body: { op: 'sq_off', password: pw } }); toast(tr('The security question is off', 'Контрольный вопрос выключен')); load(); });
     const pk = e.target.closest('[data-pk]');
     if (pk && pk.getAttribute('aria-checked') !== 'true') {
       const k = pk.dataset.pk, val = pk.dataset.pv, prev = data.privacy[k];
@@ -127,3 +134,73 @@ route(/^\/me\/security$/, v => {
   load();
   return { title: tr('Privacy & security', 'Приватность и безопасность'), nav: 'me', relang: true, auth: true };
 });
+
+/* ---------- PIN and the security question (owner) ---------- */
+function pinCardHtml(data) {
+  if (!Auth.staff || !data.pin) return '';
+  const p = data.pin, tf = data.tfa.on, next = p.nextReset && new Date(p.nextReset) > new Date() ? p.nextReset : null;
+  return `<section class="glass panel me-card sx-pin"><h2 class="grp-title">${ic('lock')} ${esc(tr('PIN for important sections', 'PIN-код для важных разделов'))}</h2>
+    <div class="sx-state ${p.on ? 'on' : ''}"><span class="sx-dot"></span><b>${esc(p.on ? tr('On', 'Включён') : tr('Off', 'Выключен'))}</b></div>
+    <p class="muted" style="margin:0">${esc(tr('The PIN is asked before the admin panel and these settings. After it they stay open for 1 minute without activity; the lock button closes them at once.', 'PIN спрашивается перед админ-панелью и этими настройками. После него они открыты 1 минуту без действий; кнопка с замком закрывает их сразу.'))}</p>
+    ${!tf && !p.on ? `<p class="faint" style="margin:0;font-size:12.5px">${ic('shieldLock')} ${esc(tr('Turn on two-step verification first – it is needed to reset a forgotten PIN.', 'Сначала включи двухэтапную проверку – она нужна, чтобы сбросить забытый PIN.'))}</p>` : ''}
+    <div class="row">${p.on ? `<button type="button" class="pill pill-glass pill-sm" data-pinset>${ic('refresh')} ${esc(tr('Change PIN', 'Сменить PIN'))}</button><button type="button" class="pill pill-outline pill-sm" data-pinrm>${ic('x')} ${esc(tr('Remove', 'Убрать'))}</button>` : `<button type="button" class="pill pill-white pill-sm" data-pinset${tf ? '' : ' disabled'}>${ic('lock')} ${esc(tr('Set a PIN', 'Поставить PIN'))}</button>`}</div>
+    ${p.on ? `<p class="faint" style="margin:0;font-size:12.5px">${next ? esc(tr('Next reset with 2FA: ', 'Следующий сброс через 2FA: ') + fmtDate(next, true)) : `<button type="button" class="txt-btn" data-pinrs>${ic('key')} ${esc(tr('Forgot the PIN? Reset with 2FA (once in 30 days)', 'Забыл PIN? Сбросить через 2FA (раз в 30 дней)'))}</button>`}</p>` : ''}</section>`;
+}
+function sqCardHtml(data) {
+  const q = data.sq; if (!q) return '';
+  return `<section class="glass panel me-card sx-sq"><h2 class="grp-title">${ic('help')} ${esc(tr('Security question', 'Контрольный вопрос'))}</h2>
+    <div class="sx-state ${q.on ? 'on' : ''}"><span class="sx-dot"></span><b>${esc(q.on ? tr('On', 'Включён') : tr('Off', 'Выключен'))}</b></div>
+    <p class="muted" style="margin:0">${esc(tr('One more step at login for the owner account: after the password and the 2FA code you answer your own question.', 'Ещё один шаг при входе в аккаунт владельца: после пароля и кода 2FA нужно ответить на свой вопрос.'))}</p>
+    ${q.on ? `<p class="sq-q">${ic('help')}<b>${esc(q.text)}</b></p>` : ''}
+    <div class="row"><button type="button" class="pill pill-${q.on ? 'glass' : 'white'} pill-sm" data-sqset>${ic(q.on ? 'pen' : 'plus')} ${esc(q.on ? tr('Change', 'Изменить') : tr('Set the question', 'Задать вопрос'))}</button>${q.on ? `<button type="button" class="pill pill-outline pill-sm" data-sqoff>${ic('x')} ${esc(tr('Turn off', 'Выключить'))}</button>` : ''}</div></section>`;
+}
+function pwDialog(title, text, run) {
+  openDialog({
+    title, cls: 'tfa-dlg',
+    body: `<form data-pwd novalidate><p class="muted" style="margin-top:0">${esc(text)}</p>${fld({ name: 'pw', label: tr('Password', 'Пароль'), icon: 'lock', type: 'password', auto: 'current-password', eye: true })}<p class="form-err" data-err role="alert"></p><div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('check')} ${esc(tr('Confirm', 'Подтвердить'))}</button></div></form>`,
+    onOpen: (d, close) => {
+      const f = $('[data-pwd]', d); bindFields(f); setTimeout(() => f.pw.focus(), 50);
+      f.addEventListener('submit', async e => { e.preventDefault(); const b = $('button[type=submit]', f); busyBtn(b, true); try { await run(f.pw.value); close('ok'); } catch (ex) { setMsg(f, 'pw', errText(ex)); } finally { busyBtn(b, false); } });
+    }
+  });
+}
+function pinSetDialog(change, done) {
+  openDialog({
+    title: change ? tr('Change the PIN', 'Сменить PIN-код') : tr('Set a PIN', 'Поставить PIN-код'), cls: 'tfa-dlg',
+    body: `<form data-ps novalidate><p class="muted" style="margin-top:0">${esc(tr('4–8 digits. Avoid 1111, 1234 and your birthday.', '4–8 цифр. Не используй 1111, 1234 и дату рождения.'))}</p>
+      ${fld({ name: 'pin', label: tr('New PIN', 'Новый PIN'), icon: 'key', type: 'password', auto: 'off', extra: 'inputmode="numeric" maxlength="8"' })}
+      ${fld({ name: 'pin2', label: tr('Repeat the PIN', 'Повтори PIN'), icon: 'key', type: 'password', auto: 'off', extra: 'inputmode="numeric" maxlength="8"' })}
+      ${fld({ name: 'pw', label: tr('Account password', 'Пароль от аккаунта'), icon: 'lock', type: 'password', auto: 'current-password', eye: true })}
+      <p class="form-err" data-err role="alert"></p><div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('check')} ${esc(tr('Save', 'Сохранить'))}</button></div></form>`,
+    onOpen: (d, close) => {
+      const f = $('[data-ps]', d); bindFields(f); setTimeout(() => f.pin.focus(), 50);
+      [f.pin, f.pin2].forEach(x => x.addEventListener('input', () => { x.value = x.value.replace(/\D/g, ''); }));
+      f.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!/^\d{4,8}$/.test(f.pin.value)) { setMsg(f, 'pin', tr('4–8 digits', '4–8 цифр')); return; }
+        if (f.pin.value !== f.pin2.value) { setMsg(f, 'pin2', tr('The PINs do not match', 'PIN-коды не совпадают')); return; }
+        const b = $('button[type=submit]', f); busyBtn(b, true);
+        try { await api('pin', { method: 'POST', body: { op: 'set', pin: f.pin.value, password: f.pw.value } }); PinGate.until = Date.now() + 60000; close('ok'); toast(tr('The PIN is saved', 'PIN-код сохранён')); done && done(); }
+        catch (ex) { if (ex.code === 'pin_required' && await pinAsk()) { busyBtn(b, false); f.requestSubmit(); return; } setMsg(f, ex.code === 'pw_wrong' ? 'pw' : 'pin', errText(ex)); } finally { busyBtn(b, false); }
+      });
+    }
+  });
+}
+function sqDialog(sq, done) {
+  openDialog({
+    title: tr('Security question', 'Контрольный вопрос'), cls: 'tfa-dlg',
+    body: `<form data-sqf novalidate><p class="muted" style="margin-top:0">${esc(tr('Pick a question only you know the answer to. Case, spaces and punctuation in the answer do not matter.', 'Выбери вопрос, ответ на который знаешь только ты. Регистр, пробелы и знаки препинания в ответе не важны.'))}</p>
+      ${fld({ name: 'q', label: tr('Question', 'Вопрос'), icon: 'help', value: sq && sq.text || '', max: 120, extra: 'maxlength="120"' })}
+      ${fld({ name: 'a', label: tr('Answer', 'Ответ'), icon: 'key', type: 'password', eye: true, auto: 'off', extra: 'maxlength="200"' })}
+      ${fld({ name: 'pw', label: tr('Account password', 'Пароль от аккаунта'), icon: 'lock', type: 'password', auto: 'current-password', eye: true })}
+      <p class="form-err" data-err role="alert"></p><div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('check')} ${esc(tr('Save', 'Сохранить'))}</button></div></form>`,
+    onOpen: (d, close) => {
+      const f = $('[data-sqf]', d); bindFields(f); setTimeout(() => f.q.focus(), 50);
+      f.addEventListener('submit', async e => {
+        e.preventDefault(); const b = $('button[type=submit]', f); busyBtn(b, true);
+        try { await api('security', { method: 'POST', body: { op: 'sq_set', question: f.q.value.trim(), answer: f.a.value, password: f.pw.value } }); close('ok'); toast(tr('The security question is saved', 'Контрольный вопрос сохранён')); done && done(); }
+        catch (ex) { setMsg(f, ex.code === 'pw_wrong' ? 'pw' : ex.code === 'sq_q_bad' ? 'q' : 'a', errText(ex)); } finally { busyBtn(b, false); }
+      });
+    }
+  });
+}

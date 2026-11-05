@@ -25,17 +25,18 @@ ICONS.x = '<path pathLength="1" d="M6 6l12 12"/><path pathLength="1" d="M18 6 6 
 const LOGO_PATH = 'M4.2 19 5.6 11.8 7.6 3 13 8.9Q16 8 19 8.9L24.4 3 26.4 11.8 27.8 19 30.4 23.4 25 25.6 16 30.6 7 25.6 1.6 23.4Z M8.6 7.4 8 11.4 11 9.4Z M23.4 7.4 24 11.4 21 9.4Z M9.4 17.3Q11.9 15 14.2 17.7 11.7 18.9 9.4 17.3Z M22.6 17.3Q20.1 15 17.8 17.7 20.3 18.9 22.6 17.3Z M14.5 21.5H17.5L16 23.3Z';
 let logoN = 0;
 function logoSvg(size = 26) { const id = 'lg' + (++logoN); return `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--pink)"/><stop offset="1" style="stop-color:var(--lilac)"/></linearGradient></defs><path fill="url(#${id})" fill-rule="evenodd" d="${LOGO_PATH}"/><path d="M7.6 3 7.1.4M24.4 3 24.9.4" stroke="url(#${id})" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`; }
-const brandHtml = () => `${logoSvg()}<span class="bname">lynx<b>.</b></span>`;
+const NY_HAT = '<svg class="ny-hat" viewBox="0 0 40 30" aria-hidden="true"><path class="h-red" d="M4 24C8 12 16 4 27 3c5 0 8 3 9 8-4-3-8-3-11 0-3 4-4 9-5 13z"/><path class="h-shade" d="M25 3c5 0 8 3 9 8-3-2-6-2-8-1 0-3 0-5-1-7z"/><rect class="h-fur" x="1" y="21" width="23" height="7" rx="3.5"/><circle class="h-pom" cx="35.5" cy="13" r="3.6"/></svg>';
+const brandHtml = () => `<span class="logo-wrap">${logoSvg()}${NY_HAT}</span><span class="bname">lynx<b>.</b></span>`;
 
 /* ---------- extra UI strings ---------- */
 Object.assign(D.i18n.en, {
-  'set.title': 'Settings', 'set.theme': 'Theme', 'set.dark': 'Dark', 'set.light': 'Light', 'set.eco': 'Power saving', 'set.ecoHint': 'Stops animations and heavy glass effects so the site runs faster on weak devices.',
+  'set.season': 'New Year theme', 'set.seasonHint': 'Garland, a Santa hat on the lynx and light snow.', 'set.title': 'Settings', 'set.theme': 'Theme', 'set.dark': 'Dark', 'set.light': 'Light', 'set.eco': 'Power saving', 'set.ecoHint': 'Stops animations and heavy glass effects so the site runs faster on weak devices.',
   'set.fs': 'Text size', 'set.fw': 'Text weight', 'set.fwLight': 'Light', 'set.fwNormal': 'Regular', 'set.fwBold': 'Bold', 'set.lang': 'Language', 'set.reset': 'Reset settings', 'set.preview': 'The quick brown lynx jumps over the lazy dog.',
   'search.ph': 'Search sections, settings and people', 'search.people': 'Search in people', 'search.sections': 'Sections', 'search.settings': 'Settings', 'search.tasks': 'Tasks',
   'auth.signup': 'Sign up', 'auth.login': 'Log in', 'auth.logout': 'Log out', 'auth.myProfile': 'My profile'
 });
 Object.assign(D.i18n.ru, {
-  'set.title': 'Настройки', 'set.theme': 'Тема', 'set.dark': 'Тёмная', 'set.light': 'Светлая', 'set.eco': 'Энергосбережение', 'set.ecoHint': 'Отключает анимации и тяжёлые стеклянные эффекты, чтобы сайт быстрее работал на слабых устройствах.',
+  'set.season': 'Новогодняя тема', 'set.seasonHint': 'Гирлянда, шапка Санты у рыси и лёгкий снег.', 'set.title': 'Настройки', 'set.theme': 'Тема', 'set.dark': 'Тёмная', 'set.light': 'Светлая', 'set.eco': 'Энергосбережение', 'set.ecoHint': 'Отключает анимации и тяжёлые стеклянные эффекты, чтобы сайт быстрее работал на слабых устройствах.',
   'set.fs': 'Размер текста', 'set.fw': 'Толщина текста', 'set.fwLight': 'Тонкий', 'set.fwNormal': 'Обычный', 'set.fwBold': 'Жирный', 'set.lang': 'Язык', 'set.reset': 'Сбросить настройки', 'set.preview': 'Съешь же ещё этих мягких французских булок, да выпей чаю.',
   'search.ph': 'Поиск разделов, настроек и людей', 'search.people': 'Искать среди людей', 'search.sections': 'Разделы', 'search.settings': 'Настройки', 'search.tasks': 'Задания',
   'auth.signup': 'Регистрация', 'auth.login': 'Войти', 'auth.logout': 'Выйти', 'auth.myProfile': 'Мой профиль'

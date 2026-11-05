@@ -345,7 +345,6 @@ html[data-eco] .fr-cosmic::before,html[data-eco] .fr-prism::before,html[data-eco
 .ch-e2e.on{color:var(--ok);border-color:rgba(91,224,168,.35);background:rgba(91,224,168,.07)}
 .ch-e2e.off{color:var(--warn);border-color:rgba(255,199,107,.35);background:rgba(255,199,107,.06)}
 .ch-e2e.lk{color:var(--lilac);border-color:rgba(200,182,255,.35);background:rgba(200,182,255,.07)}
-.ch-e2e[data-tip]::after{left:auto;right:0;transform:translateY(-4px)}
 .ch-scroll{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:8px 18px 8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent;overscroll-behavior:contain}
 .ch-more{display:grid;place-items:center;min-height:30px;color:var(--faint);font-size:12px;flex:none}
 .ch-start{padding:3px 12px;border-radius:var(--pill);border:1px dashed var(--line-2)}

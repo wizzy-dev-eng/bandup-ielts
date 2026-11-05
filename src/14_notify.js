@@ -8,7 +8,7 @@ function relTime(d) {
   return fmtDate(d, true);
 }
 const FIELD_N = { nick: ['nickname', 'ник'], bio: ['“About me”', '«О себе»'], chat: ['chat message', 'сообщение в чате'], login: ['login', 'логин'], socials: ['social links', 'соцсети'], frame: ['avatar frame', 'рамку аватара'], avatar: ['avatar', 'аватар'], banner: ['banner', 'баннер'] };
-const BADGE_N = { wizzy: 'wizzy', neo: 'neo', lead_dev: 'Lead Developer' };
+const BADGE_N = { wizzy: 'wizzy', neo: 'neo', lead_dev: 'Lead Developer', premium: 'Premium', t_hex: 'Hexagon', t_ribbon: 'Ribbon', t_star: 'Star', t_glitch: 'Glitch', t_flame: 'Flame', t_orbit: 'Orbit' };
 const ROLE_N = { owner: ['owner', 'владелец'], coowner: ['co-owner', 'совладелец'], admin: ['administrator', 'администратор'], user: ['user', 'пользователь'] };
 function noteView(n) {
   const d = n.data || {}, by = d.by ? '@' + d.by : tr('the administration', 'администрация');

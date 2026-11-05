@@ -3,6 +3,7 @@ applySettings();
 speech.init();
 Globe.init();
 initShell();
+Season.paint();
 applyLang();
 document.addEventListener('click', e => {
   const sk = e.target.closest('.skip'); if (sk) { e.preventDefault(); const m = $('#main'); m.setAttribute('tabindex', '-1'); m.focus(); return; }

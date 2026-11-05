@@ -1,5 +1,12 @@
 /* ---------- chat: the global room, groups and private messages (private ones are end-to-end encrypted) ---------- */
-var CH_DEC = new Map(), CH_PEND = new Map();
+var CH_DEC = new Map(), CH_PEND = new Map(), CH_STK = { list: null, at: 0, p: null, can: false };
+function chStickers(force) {
+  if (!force && CH_STK.list && Date.now() - CH_STK.at < 300e3) return Promise.resolve(CH_STK.list);
+  if (CH_STK.p) return CH_STK.p;
+  CH_STK.p = api('stickers').then(j => { CH_STK.list = j.stickers || []; CH_STK.can = !!j.canManage; CH_STK.at = Date.now(); return CH_STK.list; }).finally(() => { CH_STK.p = null; });
+  return CH_STK.p;
+}
+on('stickers', () => { CH_STK.at = 0; });
 on('auth', () => { CH_DEC.clear(); CH_PEND.clear(); });
 const CH_RE = /^\/chat(?:\/(\d+))?$/, CH_GAP = 5 * 60e3;
 const CH_EMO = ['😀', '😂', '🥲', '😊', '😍', '🥰', '😎', '🤩', '🤔', '😅', '😴', '😭', '😡', '🤯', '👍', '👎', '👏', '🙏', '💪', '🤝', '👀', '🔥', '✨', '🎉', '❤️', '💜', '💯', '✅', '❌', '⭐', '📚', '✍️', '🎧', '🗣️', '🏆', '☕', '🍀', '🌙', '🦊', '🐱'];
@@ -34,7 +41,7 @@ function chSys(m, users, html) {
   return ({
     create: tr(`${a} created the group ${n}`, `${a} создал(а) группу ${n}`), add: tr(`${a} added ${b}`, `${a} добавил(а) ${b}`),
     kick: tr(`${a} removed ${b}`, `${a} исключил(а) ${b}`), rename: tr(`${a} renamed the group to ${n}`, `${a} переименовал(а) группу в ${n}`),
-    leave: tr(`${a} left the group`, `${a} покинул(а) группу`)
+    leave: tr(`${a} left the group`, `${a} покинул(а) группу`), pin: tr(`${a} pinned a message`, `${a} закрепил(а) сообщение`)
   })[j.t] || (html ? '…' : '');
 }
 /* decrypt with a per-session cache: { t } = text, null = cannot be read on this device, undefined = keys are locked */
@@ -80,14 +87,15 @@ route(CH_RE, (v, [cid0]) => {
     if (l.kind === 'sys') return esc(chSys({ body: l.body, by: l.by }, l.by ? { [l.by]: { nick: l.nick } } : {}, false));
     const who = l.by === myL ? tr('You: ', 'Вы: ') : c.kind !== 'dm' && l.nick ? l.nick + ': ' : '';
     let body;
-    if (l.deleted) body = `<i>${esc(tr('Message deleted', 'Сообщение удалено'))}</i>`;
+    if (l.kind === 'sticker') body = `${ic('sticker')} ${esc(tr('Sticker', 'Стикер'))}`;
     else if (l.enc) { const d = CH_DEC.get(l.id); if (d) body = esc(d.t.replace(/\s+/g, ' ')); else { body = `${ic('lock')} ${esc(tr('Encrypted message', 'Зашифрованное сообщение'))}`; if (d === undefined && !CH_PEND.has(l.id)) chDecrypt(l.id, l.body).then(r => { if (r && !dead()) { clearTimeout(decLater); decLater = setTimeout(paintList, 60); } }); } }
     else body = esc(String(l.body).replace(/\s+/g, ' '));
     return (who ? `<span class="ch-who-p">${esc(who)}</span>` : '') + body;
   }
   function itemHtml(c) {
     const on = S && S.id === c.id, at = c.last ? c.last.at : c.at;
-    return `<a class="ch-it${on ? ' on' : ''}${c.unread ? ' unr' : ''}" href="#/chat/${c.id}" data-cid="${c.id}"${on ? ' aria-current="page"' : ''}>${chAv(c, 46)}<span class="ch-it-t"><b>${esc(chName(c))}${c.kind === 'global' ? `<span class="ch-pin" aria-hidden="true">${ic('globe')}</span>` : ''}${c.kind === 'dm' && c.peer && c.peer.pub ? `<span class="ch-pin" aria-label="${esc(tr('encrypted', 'зашифровано'))}">${ic('lock')}</span>` : ''}</b><small>${lastHtml(c)}</small></span><span class="ch-it-m">${at ? `<time datetime="${esc(at)}">${esc(chStamp(at))}</time>` : ''}${c.unread ? `<b class="ch-un" aria-label="${esc(tr(`${c.unread} unread`, `непрочитанных: ${c.unread}`))}">${c.unread > 99 ? '99+' : c.unread}</b>` : ''}</span></a>`;
+    const pinB = c.kind === 'global' ? '' : `<button type="button" class="ch-ipin${c.pinned ? ' on' : ''}" data-cpin="${c.id}" aria-pressed="${!!c.pinned}" aria-label="${esc(c.pinned ? tr('Unpin the chat', 'Открепить чат') : tr('Pin the chat', 'Закрепить чат'))}" data-tip="${esc(c.pinned ? tr('Unpin', 'Открепить') : tr('Pin to the top', 'Закрепить наверху'))}">${ic(c.pinned ? 'pinOff' : 'pin')}</button>`;
+    return `<div class="ch-iw${c.pinned ? ' pinned' : ''}"><a class="ch-it${on ? ' on' : ''}${c.unread ? ' unr' : ''}" href="#/chat/${c.id}" data-cid="${c.id}"${on ? ' aria-current="page"' : ''}>${chAv(c, 46)}<span class="ch-it-t"><b>${esc(chName(c))}${c.kind === 'global' ? `<span class="ch-pin" aria-hidden="true">${ic('globe')}</span>` : ''}${c.kind === 'dm' && c.peer && c.peer.pub ? `<span class="ch-pin" aria-label="${esc(tr('encrypted', 'зашифровано'))}">${ic('lock')}</span>` : ''}</b><small>${lastHtml(c)}</small></span><span class="ch-it-m"><span class="ch-it-tm">${c.pinned ? `<span class="ch-pn" aria-label="${esc(tr('pinned', 'закреплён'))}">${ic('pin')}</span>` : ''}${at ? `<time datetime="${esc(at)}">${esc(chStamp(at))}</time>` : ''}</span>${c.unread ? `<b class="ch-un" aria-label="${esc(tr(`${c.unread} unread`, `непрочитанных: ${c.unread}`))}">${c.unread > 99 ? '99+' : c.unread}</b>` : ''}</span></a>${pinB}</div>`;
   }
   const frRow = (u, acts) => `<div class="ch-fr">${avatarHtml({ ...u, frame: null }, 42)}<a class="ch-fr-t" href="#/u/${esc(u.login)}"><b>${esc(u.nick || u.login)}</b><small>@${esc(u.login)}</small></a><span class="ch-fr-a">${acts}</span></div>`;
   const frBtn = (op, l, icon, label, cls = '') => `<button type="button" class="icon-btn ${cls}" data-fra="${op}" data-l="${esc(l)}" data-tip="${esc(label)}" aria-label="${esc(label + ' – @' + l)}">${ic(icon)}</button>`;
@@ -113,7 +121,9 @@ route(CH_RE, (v, [cid0]) => {
     if (tab === 'friends') {
       const keep = $('[data-addfr] input', listBox), val = keep ? keep.value : '', foc = keep && document.activeElement === keep;
       listBox.innerHTML = friendsHtml();
-      const ni = $('[data-addfr] input', listBox); if (ni && val) ni.value = val; if (ni && foc) ni.focus();
+      const ni = $('[data-addfr] input', listBox); if (ni && val) ni.value = val;
+      if (ni) acAttach(ni, { exclude: () => friends ? [...friends.friends, ...friends.outgoing, ...friends.incoming].map(u => u.login) : [] });
+      if (ni && foc) { ni.focus(); if (val) ni.dispatchEvent(new Event('input')); }
     } else if (list) {
       const f = filter.toLowerCase(), items = allChats().filter(c => !f || chName(c).toLowerCase().includes(f) || (c.peer && c.peer.login.toLowerCase().includes(f)));
       listBox.innerHTML = items.length ? items.map(itemHtml).join('') + (list.chats.length || f ? '' : `<div class="ch-none ch-tip">${ic('sparkle')}<p>${esc(tr('Start a private chat or make a group with friends: press + above.', 'Начни личный чат или собери группу с друзьями: нажми + вверху.'))}</p></div>`) : `<div class="ch-none">${ic('search')}<p>${esc(tr('Nothing found.', 'Ничего не найдено.'))}</p></div>`;
@@ -136,10 +146,17 @@ route(CH_RE, (v, [cid0]) => {
     try { const j = await api('chat', { method: 'POST', body: { op: 'dm', login } }); setTab('chats'); location.hash = '#/chat/' + j.id; loadList(); }
     catch (ex) { toast(errText(ex)); } finally { btn && document.contains(btn) && busyBtn(btn, false); }
   }
+  async function pinChat(id, btn) {
+    const c = findChat(id); if (!c || c.kind === 'global') return; const on = !c.pinned;
+    btn && (btn.disabled = true);
+    try { await api('chat', { method: 'POST', body: { op: 'pin_chat', chat: id, on } }); c.pinned = on; toast(on ? tr('The chat is pinned', 'Чат закреплён') : tr('The chat is unpinned', 'Чат откреплён')); await loadList(); if (S && S.id === id && S.chat) paintHead(S); }
+    catch (ex) { toast(errText(ex)); } finally { btn && document.contains(btn) && (btn.disabled = false); }
+  }
   function setTab(k) { if (tab === k) return; tab = k; $$('[data-ctab]', v).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ctab === k))); paintList(); if (k === 'friends') frLoop(); }
   $('.ch-side', v).addEventListener('click', async e => {
     const tb = e.target.closest('[data-ctab]'); if (tb) return setTab(tb.dataset.ctab);
     if (e.target.closest('[data-new]')) return newChatDialog(friends ? friends.friends : []);
+    const cpb = e.target.closest('[data-cpin]'); if (cpb) { e.preventDefault(); return pinChat(+cpb.dataset.cpin, cpb); }
     const fa = e.target.closest('[data-fra]'); if (!fa) return;
     const op = fa.dataset.fra, l = fa.dataset.l;
     if (op === 'dm') return startDm(l, fa);
@@ -168,11 +185,12 @@ route(CH_RE, (v, [cid0]) => {
     let h = '';
     const newDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
     if (newDay) h += `<li class="cm-day" role="separator"><span>${esc(chDay(m.at))}</span></li>`;
-    if (m.kind === 'sys') return h + `<li class="cm-sys${anim ? ' in' : ''}" data-mid="${m.id}"><span>${chSys(m, st.users, true)}</span></li>`;
+    if (m.deleted) return '';
+    if (m.kind === 'sys') { let g = 0; try { const x = JSON.parse(m.body || '{}'); if (x && x.t === 'pin') g = +x.m || 0; } catch (e) { } return h + `<li class="cm-sys${anim ? ' in' : ''}${g ? ' go' : ''}" data-mid="${m.id}"${g ? ` data-goto="${g}"` : ''}><span>${g ? ic('pin') : ''}${chSys(m, st.users, true)}</span></li>`; }
     const dm = st.chat.kind === 'dm', mine = m.mine, u = st.users[m.by] || { login: m.by || '', nick: m.by || tr('Deleted account', 'Удалённый аккаунт') };
     const cont = !newDay && prev && prev.kind !== 'sys' && prev.by === m.by && new Date(m.at) - new Date(prev.at) < CH_GAP;
-    let body, txt = null, big = false;
-    if (m.deleted) body = `<span class="cm-del">${ic('ban')} ${esc(tr('Message deleted', 'Сообщение удалено'))}</span>`;
+    let body, txt = null, big = false, stk = false;
+    if (m.kind === 'sticker') { const su = st.stk[m.body]; stk = true; body = su ? `<img class="cm-stk" src="${esc(su)}" alt="${esc(tr('Sticker', 'Стикер'))}" width="150" height="150" loading="lazy" decoding="async" draggable="false">` : `<span class="cm-del">${ic('sticker')} ${esc(tr('Sticker', 'Стикер'))}</span>`; }
     else if (m.enc) {
       const d = CH_DEC.get(m.id);
       if (!d && !st.localOk) body = `<span class="cm-nodec">${ic('lock')} ${esc(tr('Encrypted – unlock below to read', 'Зашифровано – разблокируй ниже, чтобы прочитать'))}</span>`;
@@ -182,10 +200,10 @@ route(CH_RE, (v, [cid0]) => {
     } else { txt = m.body; big = chBig(txt); body = chText(txt); }
     const head = !cont && !mine && !dm ? `<a class="cm-nm" href="#/u/${esc(u.login)}" style="--h:${hashHue(u.login)}">${esc(u.nick || u.login)}${isStaffU(u) ? `<span class="cm-st" data-tip="${esc(tr('Site staff', 'Администрация сайта'))}">${ic('shield')}</span>` : ''}${u.premium ? `<span class="cm-pm" aria-label="Premium">${ic('crown')}</span>` : ''}</a>` : '';
     const av = !mine && !dm ? (cont ? '<span class="cm-av"></span>' : `<a class="cm-av" href="#/u/${esc(u.login)}" tabindex="-1" aria-hidden="true">${avatarHtml({ ...u, frame: null }, 34)}</a>`) : '';
-    const canDel = !m.deleted && !m.pend && (mine || (Auth.staff && !dm));
-    const acts = m.deleted || m.pend ? '' : `<span class="cm-acts">${txt != null ? `<button type="button" class="cm-act" data-copy="${m.id}" aria-label="${esc(tr('Copy', 'Скопировать'))}" data-tip="${esc(tr('Copy', 'Скопировать'))}">${ic('copy')}</button>` : ''}${canDel ? `<button type="button" class="cm-act del" data-del="${m.id}" aria-label="${esc(tr('Delete', 'Удалить'))}" data-tip="${esc(tr('Delete', 'Удалить'))}">${ic('trash')}</button>` : ''}</span>`;
-    const meta = `<span class="cm-meta">${m.enc ? `<span class="cm-lk" aria-label="${esc(tr('encrypted', 'зашифровано'))}">${ic('lock')}</span>` : ''}<time datetime="${esc(m.at)}" title="${esc(new Date(m.at).toLocaleString(chLoc()))}">${esc(chTime(m.at))}</time>${mine && dm && !m.deleted ? (m.pend ? `<span class="cm-tick pend">${ic('clock')}</span>` : `<span class="cm-tick${m.id <= st.peerRead ? ' rd' : ''}" aria-label="${esc(m.id <= st.peerRead ? tr('read', 'прочитано') : tr('sent', 'отправлено'))}">${chTicks()}</span>`) : ''}</span>`;
-    return h + `<li class="cm${mine ? ' mine' : ''}${cont ? ' cont' : ''}${anim ? ' in' : ''}${m.pend ? ' pend' : ''}${dm ? ' dm' : ''}" data-mid="${m.id}">${av}<div class="cm-b${big ? ' big' : ''}${m.deleted ? ' gone' : ''}">${head}<div class="cm-tx">${body}</div>${meta}</div>${acts}</li>`;
+    const canDel = !m.pend && (mine || (!dm && st.chat.canDelAll)), canPin = !m.pend && st.chat.canPin;
+    const acts = m.pend ? '' : `<span class="cm-acts">${txt != null ? `<button type="button" class="cm-act" data-copy="${m.id}" aria-label="${esc(tr('Copy', 'Скопировать'))}" data-tip="${esc(tr('Copy', 'Скопировать'))}">${ic('copy')}</button>` : ''}${canPin ? `<button type="button" class="cm-act" data-pinm="${m.id}" aria-label="${esc(m.pin ? tr('Unpin', 'Открепить') : tr('Pin', 'Закрепить'))}" data-tip="${esc(m.pin ? tr('Unpin', 'Открепить') : tr('Pin', 'Закрепить'))}">${ic(m.pin ? 'pinOff' : 'pin')}</button>` : ''}${canDel ? `<button type="button" class="cm-act del" data-del="${m.id}" aria-label="${esc(tr('Delete', 'Удалить'))}" data-tip="${esc(tr('Delete', 'Удалить'))}">${ic('trash')}</button>` : ''}</span>`;
+    const meta = `<span class="cm-meta">${m.pin ? `<span class="cm-pinned" aria-label="${esc(tr('pinned', 'закреплено'))}">${ic('pin')}</span>` : ''}${m.enc ? `<span class="cm-lk" aria-label="${esc(tr('encrypted', 'зашифровано'))}">${ic('lock')}</span>` : ''}<time datetime="${esc(m.at)}" title="${esc(new Date(m.at).toLocaleString(chLoc()))}">${esc(chTime(m.at))}</time>${mine && dm ? (m.pend ? `<span class="cm-tick pend">${ic('clock')}</span>` : `<span class="cm-tick${m.id <= st.peerRead ? ' rd' : ''}" aria-label="${esc(m.id <= st.peerRead ? tr('read', 'прочитано') : tr('sent', 'отправлено'))}">${chTicks()}</span>`) : ''}</span>`;
+    return h + `<li class="cm${mine ? ' mine' : ''}${cont ? ' cont' : ''}${anim ? ' in' : ''}${m.pend ? ' pend' : ''}${dm ? ' dm' : ''}" data-mid="${m.id}">${av}<div class="cm-b${big ? ' big' : ''}${stk ? ' stk' : ''}">${head}<div class="cm-tx">${body}</div>${meta}</div>${acts}</li>`;
   }
   const msgsHtml = (st, arr, prev, anim) => arr.map(m => { const x = msgHtml(st, m, prev, anim); prev = m; return x; }).join('');
   function fillDec(st) {
@@ -199,6 +217,45 @@ route(CH_RE, (v, [cid0]) => {
     ol.innerHTML = st.msgs.length ? msgsHtml(st, st.msgs, null, false) : '';
     $('[data-hello]', main).hidden = !!st.msgs.length;
     fillDec(st);
+  }
+  function repaintKeep(st) {
+    const sc = $('[data-scroll]', main); if (!sc) return; const fb = sc.scrollHeight - sc.scrollTop;
+    paintMsgs(st); if (st.atBottom) stick(st); else sc.scrollTop = sc.scrollHeight - fb;
+  }
+  function pinText(st, p) {
+    if (p.kind === 'sticker') return `${ic('sticker')} ${esc(tr('Sticker', 'Стикер'))}`;
+    if (p.enc) {
+      const d = CH_DEC.get(p.id); if (d) return esc(d.t.replace(/\s+/g, ' '));
+      if (d === undefined && !CH_PEND.has(p.id)) chDecrypt(p.id, p.body).then(r => { if (r && S === st) paintPins(st); });
+      return `${ic('lock')} ${esc(tr('Encrypted message', 'Зашифрованное сообщение'))}`;
+    }
+    return esc(String(p.body || '').replace(/\s+/g, ' '));
+  }
+  function paintPins(st) {
+    const bx = $('[data-pins]', main); if (!bx) return;
+    const ps = st.pins || [], n = ps.length; bx.hidden = !n; app.classList.toggle('has-pins', !!n);
+    if (!n) { bx.innerHTML = ''; return; }
+    if (st.pinIdx >= n) st.pinIdx = 0;
+    const p = ps[st.pinIdx], segs = Math.min(n, 4), on = n <= 4 ? st.pinIdx : Math.floor(st.pinIdx * 4 / n);
+    const thumb = p.kind === 'sticker' && st.stk[p.body] ? `<img class="ch-pin-im" src="${esc(st.stk[p.body])}" alt="">` : '';
+    bx.innerHTML = `<button type="button" class="ch-pin-go" data-pgo aria-label="${esc(tr('Go to the pinned message', 'К закреплённому сообщению'))}"><span class="ch-pin-bars" aria-hidden="true">${Array.from({ length: segs }, (_, i) => `<i${i === on ? ' class="on"' : ''}></i>`).join('')}</span>${thumb}<span class="ch-pin-t"><b>${esc(n > 1 ? tr(`Pinned message ${st.pinIdx + 1} of ${n}`, `Закреплённое сообщение ${st.pinIdx + 1} из ${n}`) : tr('Pinned message', 'Закреплённое сообщение'))}</b><small>${p.nick && st.chat.kind !== 'dm' ? `<span class="ch-who-p">${esc(p.nick)}: </span>` : ''}${pinText(st, p)}</small></span></button>${st.chat.canPin ? `<button type="button" class="icon-btn ch-pin-x" data-punpin="${p.id}" aria-label="${esc(tr('Unpin', 'Открепить'))}" data-tip="${esc(tr('Unpin', 'Открепить'))}">${ic('pinOff')}</button>` : `<span class="ch-pin-ic" aria-hidden="true">${ic('pin')}</span>`}`;
+  }
+  async function jumpTo(st, id) {
+    const sel = `li[data-mid="${id}"]`;
+    for (let k = 0; k < 10 && !$(sel, main) && st.more && S === st; k++) { if (st.loadingOld) await new Promise(r => setTimeout(r, 250)); else await loadOlder(st); }
+    const li = $(sel, main); if (!li) { toast(tr('This message is too far back or was deleted', 'Это сообщение слишком далеко или удалено')); return; }
+    li.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
+    li.classList.remove('hl'); void li.offsetWidth; li.classList.add('hl'); setTimeout(() => li.classList.remove('hl'), 1800);
+  }
+  async function pinMsg(st, id, on) {
+    try {
+      await api('chat', { method: 'POST', body: { op: 'pin_msg', id, on } }); if (S !== st) return;
+      const m = st.msgs.find(x => x.id === id);
+      if (on && m) { st.pins = [{ id, body: m.body, enc: m.enc, kind: m.kind, at: m.at, by: m.by, nick: (st.users[m.by] || {}).nick || m.by }, ...st.pins.filter(p => p.id !== id)]; st.pinIdx = 0; }
+      if (!on) st.pins = st.pins.filter(p => p.id !== id);
+      if (m) { m.pin = on; redrawOne(st, m); }
+      paintPins(st); toast(on ? tr('The message is pinned', 'Сообщение закреплено') : tr('The message is unpinned', 'Сообщение откреплено'));
+    } catch (ex) { toast(errText(ex)); }
   }
   function stick(st) { const sc = $('[data-scroll]', main); if (sc) { sc.scrollTop = sc.scrollHeight; st.atBottom = true; st.newN = 0; paintJump(st); } }
   function paintJump(st) { const j = $('[data-jump]', main); if (!j) return; j.hidden = st.atBottom || !st.newN; $('[data-jn]', j).textContent = st.newN > 99 ? '99+' : st.newN || ''; }
@@ -227,7 +284,9 @@ route(CH_RE, (v, [cid0]) => {
     const chip = mode === 'on' ? `<span class="ch-e2e on" tabindex="0" data-tip="${esc(tr('End-to-end encrypted: only you two can read these messages', 'Сквозное шифрование: читать сообщения можете только вы двое'))}">${ic('lock')}<span>${esc(tr('Encrypted', 'Шифрование'))}</span></span>`
       : mode === 'off' ? `<span class="ch-e2e off" tabindex="0" data-tip="${esc(!E2E.ok ? tr('This browser cannot encrypt messages', 'Этот браузер не умеет шифровать сообщения') : tr(`@${c.peer ? c.peer.login : ''} has not set up encryption yet, so messages are sent without it`, `@${c.peer ? c.peer.login : ''} ещё не настроил(а) шифрование, поэтому сообщения идут без него`))}">${ic('lockOpen')}<span>${esc(tr('Not encrypted', 'Без шифрования'))}</span></span>`
       : mode === 'locked' ? `<span class="ch-e2e lk" tabindex="0" data-tip="${esc(tr('Unlock encryption below to read and send messages', 'Разблокируй шифрование ниже, чтобы читать и отправлять сообщения'))}">${ic('lock')}<span>${esc(tr('Locked', 'Заблокировано'))}</span></span>` : '';
-    hd.innerHTML = `<a class="icon-btn ch-back" href="#/chat" aria-label="${esc(tr('Back to chats', 'К списку чатов'))}">${ic('back')}</a>${who}<div class="ch-hacts">${chip}${c.kind !== 'dm' ? `<button type="button" class="icon-btn" data-info data-tip="${esc(c.kind === 'group' ? tr('Members and settings', 'Участники и настройки') : tr('Rules of the chat', 'Правила чата'))}" aria-label="${esc(tr('Chat info', 'О чате'))}">${ic(c.kind === 'group' ? 'users' : 'about')}</button>` : ''}</div>`;
+    const lc = findChat(st.id), pinned = !!(lc && lc.pinned);
+    const hp = c.kind === 'global' ? '' : `<button type="button" class="icon-btn${pinned ? ' on' : ''}" data-hpin aria-pressed="${pinned}" data-tip="${esc(pinned ? tr('Unpin the chat', 'Открепить чат') : tr('Pin the chat', 'Закрепить чат'))}" aria-label="${esc(pinned ? tr('Unpin the chat', 'Открепить чат') : tr('Pin the chat', 'Закрепить чат'))}">${ic(pinned ? 'pinOff' : 'pin')}</button>`;
+    hd.innerHTML = `<a class="icon-btn ch-back" href="#/chat" aria-label="${esc(tr('Back to chats', 'К списку чатов'))}">${ic('back')}</a>${who}<div class="ch-hacts">${chip}${hp}${c.kind !== 'dm' ? `<button type="button" class="icon-btn" data-info data-tip="${esc(c.kind === 'group' ? tr('Members and settings', 'Участники и настройки') : tr('Rules of the chat', 'Правила чата'))}" aria-label="${esc(tr('Chat info', 'О чате'))}">${ic(c.kind === 'group' ? 'users' : 'about')}</button>` : ''}</div>`;
   }
   function paintTyping(st) {
     const box = $('[data-typing]', main); if (!box) return;
@@ -250,9 +309,28 @@ route(CH_RE, (v, [cid0]) => {
       bindFields($('[data-unl]', ft)); return;
     }
     const ph = mode === 'on' ? tr('Encrypted message', 'Зашифрованное сообщение') : tr('Message', 'Сообщение');
-    ft.innerHTML = `<form class="ch-comp" data-comp novalidate><button type="button" class="ch-cb" data-emo aria-expanded="false" aria-label="${esc(tr('Emoji', 'Эмодзи'))}" data-tip="${esc(tr('Emoji', 'Эмодзи'))}">${ic('smile')}</button><div class="ch-ta"><textarea name="t" rows="1" maxlength="2000" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></textarea><span class="ch-cnt" data-cnt aria-live="polite"></span></div><button type="submit" class="ch-send" aria-label="${esc(tr('Send', 'Отправить'))}" disabled>${ic('send')}</button>
-      <div class="ch-emo glass" data-emop hidden role="group" aria-label="${esc(tr('Emoji', 'Эмодзи'))}">${CH_EMO.map(x => `<button type="button" data-e="${x}" aria-label="${x}">${x}</button>`).join('')}</div></form>`;
+    ft.innerHTML = `<form class="ch-comp" data-comp novalidate><button type="button" class="ch-cb" data-emo aria-expanded="false" aria-label="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}" data-tip="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}">${ic('smile')}</button><div class="ch-ta"><textarea name="t" rows="1" maxlength="2000" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></textarea><span class="ch-cnt" data-cnt aria-live="polite"></span></div><button type="submit" class="ch-send" aria-label="${esc(tr('Send', 'Отправить'))}" disabled>${ic('send')}</button>
+      <div class="ch-emo glass" data-emop hidden role="group" aria-label="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}"><div class="seg ch-emt"><button type="button" data-emt="e" aria-pressed="true">${ic('smile')}<span>${esc(tr('Emoji', 'Эмодзи'))}</span></button><button type="button" data-emt="s" aria-pressed="false">${ic('sticker')}<span>${esc(tr('Stickers', 'Стикеры'))}</span></button></div><div class="ch-emg" data-emg>${CH_EMO.map(x => `<button type="button" data-e="${x}" aria-label="${x}">${x}</button>`).join('')}</div><div class="ch-stg" data-stg hidden></div></div></form>`;
     const ta = $('textarea', ft); if (keepVal) { ta.value = keepVal; taFit(ta); }
+    if (c.kind !== 'dm') acAttach(ta, { mode: 'mention', up: true, wide: 340, remote: c.kind === 'global', anchor: () => $('.ch-ta', main), local: () => mentionPool(st), title: tr('Mention', 'Упомянуть') });
+  }
+  function mentionPool(st) {
+    if (st.chat.kind === 'group') return (st.chat.members || []).map(u => ({ ...u, frame: null }));
+    const seen = new Set(), out = [];
+    for (let i = st.msgs.length - 1; i >= 0 && out.length < 40; i--) { const l = st.msgs[i].by; if (l && !seen.has(l) && st.users[l]) { seen.add(l); out.push({ ...st.users[l], frame: null }); } }
+    return out;
+  }
+  function stkGridHtml(arr) {
+    if (!arr.length) return `<div class="ch-stk-none">${ic('sticker')}<p>${esc(tr('No stickers yet. The site team adds them.', 'Стикеров пока нет. Их добавляет команда сайта.'))}</p></div>`;
+    return arr.map(x => `<button type="button" class="ch-stk" data-stkid="${x.id}" aria-label="${esc(x.name || tr('Sticker', 'Стикер'))}"${x.name ? ` data-tip="${esc(x.name)}"` : ''}><img src="${esc(x.url)}" alt="" loading="lazy" decoding="async" draggable="false"></button>`).join('');
+  }
+  function emoTab(k) {
+    const p = $('[data-emop]', main); if (!p) return;
+    $$('[data-emt]', p).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.emt === k)));
+    $('[data-emg]', p).hidden = k !== 'e'; const g = $('[data-stg]', p); g.hidden = k !== 's';
+    if (k !== 's') return;
+    if (CH_STK.list) g.innerHTML = stkGridHtml(CH_STK.list); else g.innerHTML = `<div class="ch-stk-none"><span class="spin" aria-hidden="true"></span></div>`;
+    chStickers().then(arr => { if (document.contains(g) && !g.hidden) g.innerHTML = stkGridHtml(arr); }).catch(ex => { if (document.contains(g)) g.innerHTML = `<div class="ch-stk-none"><p>${esc(errText(ex))}</p></div>`; });
   }
   function taFit(ta) {
     ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 168) + 'px';
@@ -269,7 +347,7 @@ route(CH_RE, (v, [cid0]) => {
     stopConv(); const prev = S; S = null;
     app.classList.toggle('has-chat', !!id);
     if (!id) { emptyMain(); paintList(); document.title = `${D.meta.brand} – ${tr('Chats', 'Чаты')}`; return; }
-    const st = S = { id, msgs: [], users: {}, lastId: 0, firstId: 0, more: false, now: 0, peerRead: 0, chat: null, typing: [], atBottom: true, newN: 0, sending: 0, localOk: false, loadingOld: false };
+    const st = S = { id, msgs: [], users: {}, lastId: 0, firstId: 0, more: false, now: 0, peerRead: 0, chat: null, typing: [], atBottom: true, newN: 0, sending: 0, localOk: false, loadingOld: false, stk: {}, pins: [], pinIdx: 0 };
     paintList();
     if (!prev || prev.id !== id) main.innerHTML = `<div class="ch-load">${'<div class="ch-sk m"><i></i><span><b></b><s></s></span></div>'.repeat(4)}</div>`;
     try {
@@ -278,8 +356,8 @@ route(CH_RE, (v, [cid0]) => {
       st.chat = j.chat || { id, kind: 'global', title: '' };
       if (st.chat.kind === 'dm') { const loc = await E2E.local(myL); st.localOk = !!loc && (!st.chat.mePub || loc.pub === st.chat.mePub); if (S !== st) return; }
       ingest(st, j, 'init');
-      main.innerHTML = `<header class="ch-head" data-head></header><div class="ch-scroll" data-scroll><div class="ch-more" data-more>${st.more ? `<span class="spin" aria-hidden="true"></span>` : ''}</div><div class="ch-hello" data-hello hidden>${chAv(st.chat, 64)}<b>${esc(chName(st.chat))}</b><p class="muted">${esc(st.chat.kind === 'dm' ? (e2eMode(st) === 'on' || e2eMode(st) === 'locked' ? tr('Say hi! Messages here are end-to-end encrypted.', 'Поздоровайся! Сообщения здесь защищены сквозным шифрованием.') : tr('Say hi!', 'Поздоровайся!')) : tr('No messages yet. Be the first!', 'Сообщений пока нет. Напиши первым!'))}</p></div><ol class="ch-msgs" data-msgs aria-live="polite" aria-relevant="additions" aria-label="${esc(tr('Messages', 'Сообщения'))}"></ol></div><button type="button" class="ch-jump" data-jump hidden aria-label="${esc(tr('To new messages', 'К новым сообщениям'))}">${ic('down')}<b data-jn></b></button><div class="ch-typing" data-typing aria-live="polite"></div><div class="ch-foot" data-foot></div>`;
-      paintHead(st); paintMsgs(st); paintTyping(st); paintFoot(st);
+      main.innerHTML = `<header class="ch-head" data-head></header><div class="ch-pins" data-pins hidden></div><div class="ch-scroll" data-scroll><div class="ch-more" data-more>${st.more ? `<span class="spin" aria-hidden="true"></span>` : ''}</div><div class="ch-hello" data-hello hidden>${chAv(st.chat, 64)}<b>${esc(chName(st.chat))}</b><p class="muted">${esc(st.chat.kind === 'dm' ? (e2eMode(st) === 'on' || e2eMode(st) === 'locked' ? tr('Say hi! Messages here are end-to-end encrypted.', 'Поздоровайся! Сообщения здесь защищены сквозным шифрованием.') : tr('Say hi!', 'Поздоровайся!')) : tr('No messages yet. Be the first!', 'Сообщений пока нет. Напиши первым!'))}</p></div><ol class="ch-msgs" data-msgs aria-live="polite" aria-relevant="additions" aria-label="${esc(tr('Messages', 'Сообщения'))}"></ol></div><button type="button" class="ch-jump" data-jump hidden aria-label="${esc(tr('To new messages', 'К новым сообщениям'))}">${ic('down')}<b data-jn></b></button><div class="ch-typing" data-typing aria-live="polite"></div><div class="ch-foot" data-foot></div>`;
+      paintHead(st); paintPins(st); paintMsgs(st); paintTyping(st); paintFoot(st);
       requestAnimationFrame(() => stick(st)); setTimeout(() => { if (S === st && st.atBottom) stick(st); }, 120);
       $('[data-scroll]', main).addEventListener('scroll', () => onScroll(st), { passive: true });
       document.title = `${D.meta.brand} – ${chName(st.chat)}`;
@@ -304,9 +382,14 @@ route(CH_RE, (v, [cid0]) => {
     if (j.now) st.now = j.now;
     if (j.typing) st.typing = j.typing;
     if (j.peerRead != null) st.peerRead = Math.max(st.peerRead, j.peerRead);
-    const gone = [];
-    (j.gone || []).forEach(id => { const m = st.msgs.find(x => x.id === id); if (m && !m.deleted) { m.deleted = true; m.body = ''; gone.push(m); } });
-    return { fresh, gone };
+    const gone = [], changed = []; let pinCh = false;
+    (j.gone || []).forEach(id => { const i = st.msgs.findIndex(x => x.id === id); if (i >= 0) gone.push(...st.msgs.splice(i, 1)); });
+    Object.assign(st.stk, j.stickers || {});
+    if (j.pins) {
+      const ids = new Set(j.pins.map(p => p.id)); pinCh = (st.pins || []).map(p => p.id).join() !== j.pins.map(p => p.id).join(); st.pins = j.pins;
+      st.msgs.forEach(m => { if (m.pend || m.kind === 'sys') return; const p = ids.has(m.id); if (!!m.pin !== p) { m.pin = p; changed.push(m); } });
+    }
+    return { fresh, gone, changed, pinCh };
   }
   function redrawOne(st, m) { const li = $(`li[data-mid="${m.id}"]`, main); if (!li) return; const i = st.msgs.indexOf(m), tpl = document.createElement('template'); tpl.innerHTML = msgHtml(st, m, st.msgs[i - 1], false); li.replaceWith(tpl.content.lastElementChild); }
   async function poll(st) {
@@ -316,7 +399,7 @@ route(CH_RE, (v, [cid0]) => {
         const q = { chat: st.id, after: st.lastId || 0, since: st.now || 0 }; if (document.hasFocus()) q.seen = 1;
         const j = await api('msgs', { q });
         if (S !== st || dead()) return;
-        const { fresh, gone } = ingest(st, j, 'new');
+        const { fresh, gone, changed, pinCh } = ingest(st, j, 'new');
         if (fresh.length) {
           const sc = $('[data-scroll]', main), near = sc && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 140;
           appendMsgs(st, fresh, !fxOff());
@@ -324,7 +407,9 @@ route(CH_RE, (v, [cid0]) => {
           if (near) stick(st); else { st.atBottom = false; st.newN += others; paintJump(st); }
           if (others && q.seen) { const c = findChat(st.id); if (c) { c.unread = 0; c.last = { ...fresh[fresh.length - 1], nick: (st.users[fresh[fresh.length - 1].by] || {}).nick }; c.at = c.last.at; } paintList(); Auth.pollUnread(); }
         }
-        gone.forEach(m => redrawOne(st, m));
+        if (gone.length) { repaintKeep(st); const c = findChat(st.id); if (c && c.last && gone.some(m => m.id === c.last.id)) loadList(); }
+        else changed.forEach(m => redrawOne(st, m));
+        if (pinCh) paintPins(st);
         paintTyping(st); paintTicks(st);
       } catch (e) {
         if (S !== st || dead()) return;
@@ -339,7 +424,7 @@ route(CH_RE, (v, [cid0]) => {
     try {
       const j = await api('msgs', { q: { chat: st.id, before: st.firstId } }); if (S !== st || dead()) return;
       const sc = $('[data-scroll]', main), h0 = sc.scrollHeight, y0 = sc.scrollTop;
-      ingest(st, j, 'old'); paintMsgs(st);
+      const r = ingest(st, j, 'old'); paintMsgs(st); if (r.pinCh) paintPins(st);
       $('[data-more]', main).innerHTML = st.more ? `<span class="spin" aria-hidden="true"></span>` : `<span class="ch-start">${esc(tr('The beginning of the chat', 'Начало чата'))}</span>`;
       sc.scrollTop = y0 + (sc.scrollHeight - h0);
     } catch (e) { toast(errText(e)); } finally { st.loadingOld = false; }
@@ -356,13 +441,23 @@ route(CH_RE, (v, [cid0]) => {
     if (mode === 'locked') { toast(tr('Unlock encryption first', 'Сначала разблокируй шифрование')); return false; }
     if (mode === 'on') { try { body = await E2E.seal(text, st.chat.peer.pub); enc = true; } catch (e) { toast(tr('Could not encrypt the message', 'Не удалось зашифровать сообщение')); return false; } }
     const tmp = { id: 'p' + (++pendN), by: myL, mine: true, body: text, enc: false, kind: 'text', at: new Date().toISOString(), pend: true };
+    return push(st, tmp, { chat: st.id, body, enc }, enc ? text : null, () => { const ta = $('[data-comp] textarea', main); if (ta && !ta.value) { ta.value = text; taFit(ta); } });
+  }
+  function sendSticker(st, s) {
+    if (e2eMode(st) === 'locked') { toast(tr('Unlock encryption first', 'Сначала разблокируй шифрование')); return; }
+    st.stk[s.id] = s.url;
+    const tmp = { id: 'p' + (++pendN), by: myL, mine: true, body: String(s.id), enc: false, kind: 'sticker', at: new Date().toISOString(), pend: true };
+    return push(st, tmp, { chat: st.id, sticker: s.id }, null, null);
+  }
+  async function push(st, tmp, payload, plain, fail) {
     st.users[myL] = st.users[myL] || { login: myL, nick: me.nick, avatar: me.avatar, role: me.role, premium: me.premium };
     st.msgs.push(tmp); appendMsgs(st, [tmp], !fxOff()); stick(st);
     st.sending++;
     try {
-      const j = await api('msg', { method: 'POST', body: { chat: st.id, body, enc } });
+      const j = await api('msg', { method: 'POST', body: payload });
       if (S !== st) return true;
-      if (enc) CH_DEC.set(j.message.id, { t: text });
+      if (plain != null) CH_DEC.set(j.message.id, { t: plain });
+      Object.assign(st.stk, j.stickers || {});
       st.users[myL] = j.user;
       const i = st.msgs.indexOf(tmp); st.msgs.splice(i, 1);
       const li = $(`li[data-mid="${tmp.id}"]`, main);
@@ -372,7 +467,7 @@ route(CH_RE, (v, [cid0]) => {
       return true;
     } catch (e) {
       st.msgs = st.msgs.filter(m => m !== tmp); const li = $(`li[data-mid="${tmp.id}"]`, main); li && li.remove();
-      const ta = $('[data-comp] textarea', main); if (ta && !ta.value) { ta.value = text; taFit(ta); }
+      fail && fail();
       toast(errText(e)); if (e.code === 'chat_gone') location.hash = '#/chat';
       return false;
     } finally { st.sending--; }
@@ -406,6 +501,13 @@ route(CH_RE, (v, [cid0]) => {
     if (!st) return;
     if (e.target.closest('[data-info]')) return st.chat.kind === 'group' ? groupDialog(st) : rulesDialog();
     if (e.target.closest('[data-jump]')) return stick(st);
+    if (e.target.closest('[data-hpin]')) return pinChat(st.id, e.target.closest('[data-hpin]'));
+    if (e.target.closest('[data-pgo]')) { const p = st.pins[st.pinIdx]; if (!p) return; if (st.pins.length > 1) { st.pinIdx = (st.pinIdx + 1) % st.pins.length; paintPins(st); } return jumpTo(st, p.id); }
+    const pu = e.target.closest('[data-punpin]'); if (pu) return pinMsg(st, +pu.dataset.punpin, false);
+    const pm = e.target.closest('[data-pinm]'); if (pm) { const m = st.msgs.find(x => String(x.id) === pm.dataset.pinm); if (m) pinMsg(st, m.id, !m.pin); return; }
+    const gt = e.target.closest('[data-goto]'); if (gt) return jumpTo(st, +gt.dataset.goto);
+    const et = e.target.closest('[data-emt]'); if (et) return emoTab(et.dataset.emt);
+    const sk = e.target.closest('[data-stkid]'); if (sk) { const s = (CH_STK.list || []).find(x => String(x.id) === sk.dataset.stkid); const p = $('[data-emop]', main); if (p) { p.hidden = true; $('[data-emo]', main).setAttribute('aria-expanded', 'false'); } if (s) sendSticker(st, s); return; }
     const eb = e.target.closest('[data-emo]');
     if (eb) { const p = $('[data-emop]', main); p.hidden = !p.hidden; eb.setAttribute('aria-expanded', String(!p.hidden)); if (!p.hidden) $('button', p).focus(); return; }
     const em = e.target.closest('[data-e]');
@@ -417,7 +519,7 @@ route(CH_RE, (v, [cid0]) => {
     if (dl) {
       const m = st.msgs.find(x => String(x.id) === dl.dataset.del); if (!m) return;
       if (!(await confirmDlg(m.mine ? tr('Delete this message for everyone?', 'Удалить сообщение у всех?') : tr(`Delete the message from ${(st.users[m.by] || {}).nick || m.by}? It will be logged.`, `Удалить сообщение от ${(st.users[m.by] || {}).nick || m.by}? Действие попадёт в журнал.`)))) return;
-      try { await api('chat', { method: 'POST', body: { op: 'del_msg', id: m.id } }); m.deleted = true; m.body = ''; redrawOne(st, m); toast(tr('The message was deleted', 'Сообщение удалено')); }
+      try { await api('chat', { method: 'POST', body: { op: 'del_msg', id: m.id } }); st.msgs = st.msgs.filter(x => x !== m); repaintKeep(st); if (st.pins.some(p => p.id === m.id)) { st.pins = st.pins.filter(p => p.id !== m.id); paintPins(st); } const c = findChat(st.id); if (c && c.last && c.last.id === m.id) loadList(); toast(tr('The message was deleted', 'Сообщение удалено')); }
       catch (ex) { toast(errText(ex)); }
     }
   });
@@ -440,8 +542,9 @@ route(CH_RE, (v, [cid0]) => {
       title: st.chat.title, cls: 'ch-dlg', body: `<div data-gd>${body()}</div>`,
       onOpen: (d, close) => {
         const box = $('[data-gd]', d);
-        const redraw = () => { box.innerHTML = body(); $$('form', box).forEach(bindFields); $('h2', d).textContent = st.chat.title; };
-        $$('form', box).forEach(bindFields);
+        const bindAc = () => { const f = $('[data-addm]', box); if (f) acAttach(f.login, { exclude: () => (st.chat.members || []).map(u => u.login), local: () => friends ? friends.friends : [] }); };
+        const redraw = () => { box.innerHTML = body(); $$('form', box).forEach(bindFields); bindAc(); $('h2', d).textContent = st.chat.title; };
+        $$('form', box).forEach(bindFields); bindAc();
         box.addEventListener('submit', async e => {
           e.preventDefault(); const f = e.target, b = $('button[type=submit]', f); busyBtn(b, true);
           try {
@@ -473,6 +576,7 @@ route(CH_RE, (v, [cid0]) => {
       <div class="row" style="justify-content:flex-end"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('chat')} <span data-go>${esc(tr('Start chat', 'Начать чат'))}</span></button></div></form>`,
       onOpen: (d, close) => {
         const f = $('[data-nf]', d); bindFields(f); setTimeout(() => f.login.focus(), 60);
+        acAttach(f.login, { mode: () => mode === 'group' ? 'list' : 'one', local: () => fr, exclude: () => mode === 'group' ? [...picked, ...f.login.value.split(/[\s,;]+/).map(x => x.replace(/^@/, ''))] : [] });
         const sync = () => {
           $$('[data-nm]', d).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.nm === mode)));
           $('[data-gt]', d).hidden = mode !== 'group';
@@ -515,38 +619,10 @@ route(CH_RE, (v, [cid0]) => {
   return { title: tr('Chats', 'Чаты'), nav: 'chat', noFooter: true, auth: true, relang: true, softRe: CH_RE, soft: ([id]) => { openChat(id ? +id : null); return true; } };
 });
 
-/* ---------- floating chat button: shown everywhere except the chat itself ---------- */
-var fabWatched = false;
-function fabLift() {
-  const b = document.getElementById('chFab'); if (!b) return;
-  const c = document.getElementById('consent'); let lift = 0;
-  if (c && !c.classList.contains('out') && c.offsetHeight) {
-    const r = c.getBoundingClientRect(), fw = b.offsetWidth || 58, right = innerWidth - (parseFloat(getComputedStyle(b).right) || 20), left = right - fw;
-    if (r.left < right + 6 && r.right > left - 6) lift = (parseFloat(getComputedStyle(c).bottom) || 18) + c.offsetHeight + 12;
-  }
-  if (lift) b.style.setProperty('--lift', lift + 'px'); else b.style.removeProperty('--lift');
+/* ---------- Connect in the top bar: unread chats counter ---------- */
+function paintConnect() {
+  const n = Auth.user && Auth.unread ? Auth.unread.chat || 0 : 0;
+  $$('[data-cn]').forEach(b => { const was = +(b.dataset.n || 0); b.dataset.n = n; b.textContent = n ? (n > 99 ? '99+' : String(n)) : ''; b.classList.toggle('on', n > 0); if (n > was && !reduced()) { b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); } });
+  $$('a[data-nav="chat"]').forEach(a => a.setAttribute('aria-label', 'Connect' + (n ? ` – ${tr('unread', 'непрочитанных')}: ${n}` : '')));
 }
-function fabWatch() {
-  if (fabWatched) return; fabWatched = true;
-  const hook = () => { const c = document.getElementById('consent'); if (c && !c.dataset.fab) { c.dataset.fab = '1'; new MutationObserver(fabLift).observe(c, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] }); } fabLift(); };
-  new MutationObserver(hook).observe(document.body, { childList: true }); hook();
-  addEventListener('resize', debounce(fabLift, 100));
-}
-function paintFab() {
-  const u = Auth.user; let b = document.getElementById('chFab');
-  if (!b) {
-    if (!u) return;
-    b = document.createElement('a'); b.id = 'chFab'; b.className = 'ch-fab off'; b.href = '#/chat';
-    b.innerHTML = `<span class="cf-ring" aria-hidden="true"></span><svg class="cf-svg" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="cfG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6A9D3"/><stop offset="1" stop-color="#C8B6FF"/></linearGradient></defs><path class="cf-bub" d="M24 9.5c-8.6 0-15.5 6-15.5 13.4 0 4 2 7.6 5.3 10.1l-1.3 6.2 6.9-3.4c1.4.3 3 .5 4.6.5 8.6 0 15.5-6 15.5-13.4S32.6 9.5 24 9.5z"/><circle class="cf-d d1" cx="17.6" cy="23" r="2.1"/><circle class="cf-d d2" cx="24" cy="23" r="2.1"/><circle class="cf-d d3" cx="30.4" cy="23" r="2.1"/></svg><b class="cf-n" aria-hidden="true"></b>`;
-    document.body.appendChild(b); fabWatch();
-  }
-  const show = !!u && !/^#\/chat(?:[/?]|$)/.test(location.hash);
-  b.classList.toggle('off', !show); b.tabIndex = show ? 0 : -1; b.setAttribute('aria-hidden', String(!show));
-  const n = u && Auth.unread ? Auth.unread.chat || 0 : 0, was = +(b.dataset.n || 0);
-  b.dataset.n = n; b.classList.toggle('has', n > 0); $('.cf-n', b).textContent = n ? (n > 99 ? '99+' : String(n)) : '';
-  b.setAttribute('aria-label', tr('Chats', 'Чаты') + (n ? ` – ${tr('unread', 'непрочитанных')}: ${n}` : ''));
-  if (n > was && show && !reduced()) { b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); }
-  fabLift();
-}
-on('unread', paintFab);
-addEventListener('hashchange', paintFab);
+on('unread', paintConnect);

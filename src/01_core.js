@@ -178,6 +178,7 @@ function moveInd(tl, instant) {
   const a = $('[role=tab][aria-selected=true]', tl), ind = $('.tab-ind', tl); if (!a || !ind) return;
   const first = !ind.dataset.on; ind.dataset.on = '1';
   if (typeof liquidTo === 'function') liquidTo(ind, a.offsetLeft, a.offsetWidth, first || instant); else { ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px'; }
+  const multi = tl.offsetHeight > a.offsetHeight + 14; ind.style.top = multi ? a.offsetTop + 'px' : ''; ind.style.bottom = multi ? 'auto' : ''; ind.style.height = multi ? a.offsetHeight + 'px' : '';
 }
 function bindTabs(tl, onSelect) {
   const tabs = () => $$('[role=tab]', tl);
@@ -208,6 +209,7 @@ class Timer {
   pause() { if (!this.running) return; this.acc += Date.now() - this.t0; this.running = false; clearInterval(this.iv); this.render(); }
   stop() { this.pause(); this.done = true; }
   reset(seconds = this.seconds) { this.pause(); this.acc = 0; this.done = false; this.seconds = seconds; this.warned = {}; if (this.el) this.el.classList.remove('warn', 'urgent', 'up'); this.render(); }
+  skip(sec) { if (this.done || !(sec > 0)) return; this.acc += sec * 1000; this.render(); }
   elapsed() { return (this.acc + (this.running ? Date.now() - this.t0 : 0)) / 1000; }
   remaining() { return this.seconds == null ? null : Math.max(0, this.seconds - this.elapsed()); }
   render() {
@@ -253,11 +255,19 @@ const speech = {
   voices: [], supported: 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window, token: 0, items: null, idx: 0, playing: false,
   init() {
     if (!this.supported) return;
-    const load = () => { this.voices = speechSynthesis.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang)); emit('voices'); };
+    const load = () => { this.voices = this.best(speechSynthesis.getVoices()); emit('voices'); };
     load();
     if (speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', load); else speechSynthesis.onvoiceschanged = load;
   },
-  rank(v) { const o = ['en-GB', 'en-AU', 'en-IE', 'en-NZ', 'en-CA', 'en-US']; const i = o.findIndex(p => v.lang.replace('_', '-').toLowerCase().startsWith(p.toLowerCase())); return (i < 0 ? 9 : i) + (v.localService ? 0 : .5); },
+  /* only British and American voices, the most natural ones first, a few per accent */
+  quality(v) { const n = v.name; return /natural|neural/i.test(n) ? 0 : /online/i.test(n) ? 1 : /premium|enhanced|siri/i.test(n) ? 2 : /^google/i.test(n) ? 3 : /microsoft/i.test(n) ? 5 : 4; },
+  best(all) {
+    const acc = v => { const l = v.lang.replace('_', '-').toLowerCase(); return l.startsWith('en-gb') ? 'GB' : l.startsWith('en-us') ? 'US' : null; };
+    const out = [];
+    ['GB', 'US'].forEach(a => { const vs = all.filter(v => acc(v) === a && !/espeak|compact|novelty|whisper|bad news|bells|bubbles|cellos|zarvox|trinoids|organ|boing|albert|jester|superstar|wobble/i.test(v.name)).sort((x, y) => this.quality(x) - this.quality(y) || (x.localService === y.localService ? 0 : x.localService ? 1 : -1)); out.push(...vs.slice(0, 6)); });
+    return out.length ? out : all.filter(v => /^en([-_]|$)/i.test(v.lang)).slice(0, 6);
+  },
+  rank(v) { const i = /gb/i.test(v.lang) ? 0 : 1; return this.quality(v) * 2 + i * .5; },
   pick(gender, exclude) {
     const F = /libby|sonia|serena|kate|samantha|karen|moira|female|susan|hazel|tessa|fiona|victoria|zira|aria|jenny|emma|natasha|clara|maisie|mia|olivia|amy/i;
     const M = /ryan|george|daniel|arthur|oliver|\bmale\b|thomas|james|alex|david|mark|guy|fred|rishi|william|lee|brian|eric|roger/i;

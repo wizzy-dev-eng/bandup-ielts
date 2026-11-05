@@ -3,7 +3,15 @@ const API_URL = '/api/app', HINT = 'lynx.authHint', SYNC_KEY = 'lynx.sync';
 const LOGIN_RE = /^[A-Za-z0-9_]{4,24}$/, EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 const PW_RULES = [['len', s => s.length >= 8, ['At least 8 characters', 'Не меньше 8 символов']], ['num', s => /\d/.test(s), ['A digit', 'Цифра']], ['up', s => /\p{Lu}/u.test(s), ['A capital letter', 'Заглавная буква']], ['sp', s => /[^\p{L}\p{N}\s]/u.test(s), ['A special character, e.g. ! ? @ #', 'Спецсимвол, например ! ? @ #']]];
 const pwOk = s => PW_RULES.every(r => r[1](s));
-async function api(r, { method = 'GET', body, q, keepalive = false } = {}) {
+async function api(r, o = {}) {
+  try { const j = await api0(r, o); if (PIN_ROUTES.includes(r) && typeof pinMark === 'function') pinMark(); return j; }
+  catch (e) {
+    /* PIN-protected sections: ask for the PIN once and repeat the request */
+    if (e.status === 423 && e.code === 'pin_required' && r !== 'pin' && !o.noPin && typeof pinAsk === 'function') { if (await pinAsk()) { const j = await api0(r, o); pinMark(); return j; } const c = new Error('pin_cancel'); c.code = 'pin_cancel'; c.data = {}; throw c; }
+    throw e;
+  }
+}
+async function api0(r, { method = 'GET', body, q, keepalive = false } = {}) {
   const u = API_URL + '?r=' + encodeURIComponent(r) + (q ? '&' + new URLSearchParams(q) : '');
   let res;
   try { res = await fetch(u, { method, credentials: 'same-origin', cache: 'no-store', keepalive, headers: { 'X-Requested-With': 'lynx', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) }, body: body !== undefined ? JSON.stringify(body) : undefined }); }
@@ -57,12 +65,40 @@ const ERR = {
   title_bad: ['Group name: 1–48 characters.', 'Название группы: от 1 до 48 символов.'],
   group_full: ['The group is full (50 members).', 'В группе уже 50 участников.'],
   key_exists: ['The encryption key already exists.', 'Ключ шифрования уже создан.'],
+  pin_required: ['Enter the PIN to continue.', 'Введи PIN-код, чтобы продолжить.'],
+  pin_cancel: ['The section is locked with a PIN.', 'Раздел закрыт PIN-кодом.'],
+  pin_bad: ['Wrong PIN. Attempts left: {left}.', 'Неверный PIN. Осталось попыток: {left}.'],
+  pin_locked: ['Too many wrong PINs. Try again in {m} min.', 'Слишком много неверных PIN. Попробуй через {m} мин.'],
+  pin_weak: ['The PIN is too simple: 4–8 digits, not 1111 or 1234.', 'PIN слишком простой: 4–8 цифр, не 1111 и не 1234.'],
+  pin_reset_wait: ['The PIN can be reset once in 30 days.', 'Сбросить PIN можно раз в 30 дней.'],
+  pin_first: ['Remove the PIN first.', 'Сначала убери PIN-код.'],
+  tfa_needed: ['Turn on two-step verification first.', 'Сначала включи двухэтапную проверку.'],
+  sq_bad: ['Wrong answer. Attempts left: {left}.', 'Неверный ответ. Осталось попыток: {left}.'],
+  sq_q_bad: ['Question: 5–120 characters.', 'Вопрос: от 5 до 120 символов.'],
+  sq_a_bad: ['Answer: at least 3 characters.', 'Ответ: не меньше 3 символов.'],
+  no_perm: ['This permission is not given to you.', 'Это право тебе не выдано.'],
+  exclusive: ['This badge is exclusive – only the owner can give it.', 'Этот бейдж эксклюзивный – выдать его может только владелец.'],
+  range_bad: ['Check the dates.', 'Проверь даты.'],
+  music_bad: ['This file cannot be used. MP3, M4A, OGG, FLAC or WAV up to 6 MB.', 'Этот файл не подходит. MP3, M4A, OGG, FLAC или WAV до 6 МБ.'],
+  sticker_bad: ['A PNG up to 300 KB is needed.', 'Нужен PNG до 300 КБ.'],
+  spotify_bad: ['Paste a link to a Spotify track, album, playlist or artist.', 'Вставь ссылку на трек, альбом, плейлист или исполнителя Spotify.'],
+  color_bad: ['Pick another colour.', 'Выбери другой цвет.'],
+  pin_full: ['Too many pinned items: unpin something first (chats – up to 10, messages – up to 20).', 'Слишком много закреплённого: сначала открепи что-нибудь (чатов – до 10, сообщений – до 20).'],
+  music_big: ['The file is too big: up to 6 MB.', 'Файл слишком большой: до 6 МБ.'],
+  cover_bad: ['This cover cannot be used. Try another picture.', 'Эта обложка не подходит. Попробуй другую картинку.'],
+  music_expired: ['The upload took too long. Try again.', 'Загрузка заняла слишком много времени. Попробуй ещё раз.'],
+  music_part: ['Part of the file did not arrive. Try again.', 'Часть файла не дошла. Попробуй ещё раз.'],
+  title_locked: ['This title is not unlocked yet.', 'Этот титул ещё не открыт.'],
+  sticker_gone: ['This sticker was removed.', 'Этот стикер удалён.'],
+  sticker_full: ['The sticker pack is full (up to 300).', 'Набор стикеров заполнен (до 300).'],
   bad: ['Something is wrong with the request.', 'Что-то не так с запросом.']
 };
 const fmtDate = (d, long) => new Date(d).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB', long ? { day: 'numeric', month: 'long', year: 'numeric' } : undefined);
 function errText(e) {
   const x = ERR[e && e.code] || ERR.server; let s = tr(x[0], x[1]);
   if (e && e.data && e.data.minutes) s = s.replace('{m}', e.data.minutes);
+  if (e && e.data && e.data.left != null) s = s.replace('{left}', e.data.left);
+  if (e && e.code === 'pin_reset_wait' && e.data && e.data.until) s += ' ' + tr('Next reset: ', 'Следующий сброс: ') + fmtDate(e.data.until, true) + '.';
   if (e && e.code === 'login_wait' && e.data && e.data.until) s += ' ' + tr('Next change: ', 'Следующая смена: ') + fmtDate(e.data.until, true) + '.';
   if (e && e.code === 'banned') { const u = e.data && e.data.until; s += (!u || /^9999/.test(u) ? tr(' forever', ' навсегда') : tr(' until ', ' до ') + fmtDate(u, true)) + '.'; if (e.data && e.data.reason) s += ' ' + tr('Reason: ', 'Причина: ') + e.data.reason; }
   return s;
@@ -127,7 +163,8 @@ const Auth = {
     const was = this.user && this.user.login;
     this.user = u ? { login: u.login, nick: u.nick, avatar: u.avatar || null, bio: u.bio || '', email: u.email || '', created: u.created, nextLoginChange: u.nextLoginChange || null,
       role: u.role || 'user', badges: Array.isArray(u.badges) ? u.badges : [], frame: u.frame || null, socials: u.socials || {}, banner: u.banner && !/^data:/.test(u.banner) ? u.banner : null,
-      premium: u.premium || null, bt: u.bt || null, tfa: !!u.tfa, privacy: u.privacy || null, e2e: !!u.e2e } : null;
+      premium: u.premium || null, bt: u.bt || null, tfa: !!u.tfa, privacy: u.privacy || null, e2e: !!u.e2e,
+      color: u.color || null, title: u.title || null, spotify: u.spotify || null, music: u.music || null, ach: Array.isArray(u.ach) ? u.ach : [], pin: !!u.pin, perms: u.perms || null } : null;
     if (this.user) _sset(HINT, this.user); else { _sdel(HINT); this.unread = { n: 0 }; }
     renderAuth(); if (was !== (this.user && this.user.login)) emit('auth', this.user);
   },
@@ -138,16 +175,18 @@ const Auth = {
   pollUnread() { if (!this.user || document.visibilityState !== 'visible') return; api('unread').then(j => this.setUnread(j)).catch(e => { if (e.status === 401) this.refresh(); }); },
   async refresh() {
     this.lastCheck = Date.now();
-    try { const j = await api('me'); if (j.user) { this.setUser(j.user); this.setUnread(j.unread); Sync.fromServer(j.data, j.ts); } else if (this.user) { this.setUser(null); Sync.clearLocal(); } }
+    try { const j = await api('me'); if (j.season) Season.apply(j.season.on); if (j.user) { this.setUser(j.user); this.setUnread(j.unread); Sync.fromServer(j.data, j.ts); } else if (this.user) { this.setUser(null); Sync.clearLocal(); } }
     catch (e) { if (e.code === 'no_api' && this.user) this.setUser(null); }
   },
-  /* returns the user, or { tfa: true, ticket } when a second step is needed */
+  /* returns the user, or { tfa | sq: true, ticket } when one more step is needed */
   async login(id, password) {
     const j = await api('login', { method: 'POST', body: { id, password } });
     if (j.tfa) return { tfa: true, ticket: j.ticket };
+    if (j.sq) return { sq: true, ticket: j.ticket, question: j.question };
     return this.finish(j, password);
   },
-  async login2(ticket, code, password) { const j = await api('login2', { method: 'POST', body: { ticket, code } }); return this.finish(j, password); },
+  async login2(ticket, code, password) { const j = await api('login2', { method: 'POST', body: { ticket, code } }); if (j.sq) return { sq: true, ticket: j.ticket, question: j.question }; return this.finish(j, password); },
+  async login3(ticket, answer, password) { const j = await api('login3', { method: 'POST', body: { ticket, answer } }); return this.finish(j, password); },
   async finish(j, password) { this.setUser(j.user); this.setUnread(j.unread); E2E.setup(j.user.login, password); await Sync.merge(j.data, j.ts); return j.user; },
   async signup(f) { const j = await api('signup', { method: 'POST', body: { ...f, data: Sync.local() } }); Sync.st = { dirty: false, ts: j.ts }; Sync.save(); this.setUser(j.user); if (j.unread) this.setUnread(j.unread); E2E.setup(j.user.login, f.password); return j.user; },
   async logout() {
@@ -172,18 +211,18 @@ function renderAuth() {
   const u = Auth.user;
   if (u) {
     slot.innerHTML = `<a class="av-pill" href="#/u/${esc(u.login)}" aria-label="${esc(t('auth.myProfile'))}" data-tip="${esc(t('auth.myProfile'))}">${avatarHtml(u, 30)}<span class="nm">${esc(u.nick || u.login)}</span></a>${premBtnHtml(u)}<a class="icon-btn nt-btn" href="#/notifications" data-bell data-tip="${esc(tr('Notifications', 'Уведомления'))}" aria-label="${esc(bellLabel(0))}">${ic('bell')}<b class="nt-n" aria-hidden="true"></b></a>`;
-    if (sh) sh.innerHTML = `<a class="pill pill-glass" href="#/u/${esc(u.login)}">${avatarHtml(u, 24)}<span>${esc(t('auth.myProfile'))}</span></a><a class="pill pill-glass nt-sheet" href="#/notifications" data-bell aria-label="${esc(bellLabel(0))}">${ic('bell')}<span>${esc(tr('Notifications', 'Уведомления'))}</span><b class="nt-n" aria-hidden="true"></b></a><a class="pill pill-glass" href="#/chat">${ic('chat')}<span>${esc(tr('Chats', 'Чаты'))}</span></a><a class="pill pill-glass pm-sheet" href="#/premium">${ic('gem')}<span>Premium</span></a>${Auth.staff ? `<a class="pill pill-glass" href="#/admin">${ic('shield')}<span>${esc(tr('Admin panel', 'Админ-панель'))}</span></a>` : ''}<button type="button" class="pill pill-outline" data-logout>${ic('logout')}<span>${esc(t('auth.logout'))}</span></button>`;
+    if (sh) sh.innerHTML = `<a class="pill pill-glass" href="#/u/${esc(u.login)}">${avatarHtml(u, 24)}<span>${esc(t('auth.myProfile'))}</span></a><a class="pill pill-glass nt-sheet" href="#/notifications" data-bell aria-label="${esc(bellLabel(0))}">${ic('bell')}<span>${esc(tr('Notifications', 'Уведомления'))}</span><b class="nt-n" aria-hidden="true"></b></a><a class="pill pill-glass pm-sheet" href="#/premium">${ic('crown')}<span>Premium</span></a>${Auth.staff ? `<a class="pill pill-glass" href="#/admin">${ic('shield')}<span>${esc(tr('Admin panel', 'Админ-панель'))}</span></a>` : ''}<button type="button" class="pill pill-outline" data-logout>${ic('logout')}<span>${esc(t('auth.logout'))}</span></button>`;
     paintBell();
   } else {
     slot.innerHTML = `<a class="pill pill-sm pill-ghost auth-in" href="#/login">${esc(t('auth.login'))}</a><a class="pill pill-sm pill-white auth-up" href="#/signup">${esc(t('auth.signup'))}</a>`;
     if (sh) sh.innerHTML = `<a class="pill pill-white" href="#/signup">${ic('userPlus')}<span>${esc(t('auth.signup'))}</span></a><a class="pill pill-outline" href="#/login">${ic('login')}<span>${esc(t('auth.login'))}</span></a>`;
   }
-  paintFab();
+  if (typeof paintConnect === 'function') paintConnect();
 }
 on('lang', renderAuth);
 function premBtnHtml(u) {
   const p = u && u.premium, tip = p ? tr('Premium is active', 'Premium активен') : 'Premium';
-  return `<a class="icon-btn pm-btn${p ? ' on' : ''}" href="#/premium" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><svg class="ic pm-gem" viewBox="0 0 24 24" aria-hidden="true"><path class="g1" d="M6.5 4h11l4 5L12 20.5 2.5 9z"/><path class="g2" d="M2.5 9h19M9.6 4 8 9l4 11.5L16 9l-1.6-5"/></svg><i class="pm-sp s1"></i><i class="pm-sp s2"></i><i class="pm-sp s3"></i></a>`;
+  return `<a class="icon-btn pm-btn${p ? ' on' : ''}" href="#/premium" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><svg class="ic pm-gem pm-crown" viewBox="0 0 24 24" aria-hidden="true"><path class="g1" d="m2 6 4.5 10h11L22 6l-5.5 4L12 3 7.5 10z"/><path class="g2" d="M6 20h12"/></svg><i class="pm-sp s1"></i><i class="pm-sp s2"></i><i class="pm-sp s3"></i></a>`;
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-logout]')) { e.preventDefault(); Auth.logout(); } });
 setInterval(() => Auth.pollUnread(), 45000);

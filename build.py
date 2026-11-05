@@ -37,7 +37,7 @@ def scale_fonts(c):
 import lighten
 css += '\n/* light theme (generated) */\n' + lighten.walk(css) + '\n' + re.sub(r'/\*(?!!)[\s\S]*?\*/', '', (S / 'light' / 'manual.css').read_text(encoding='utf-8'))
 css = protect_print(css, scale_fonts) + '\nb{font-weight:calc(600 + var(--fw,0))}'
-FONTS = 'https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,200..700&family=Poppins:wght@300;400;500;600;700&display=swap'
+FONTS = 'https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,200..700&family=Poppins:wght@300;400;500;600;700&family=Onest:wght@400;500;600;700&display=swap'
 LOGO = re.search(r"const LOGO_PATH = '([^']+)'", (S / '01b_ui.js').read_text(encoding='utf-8')).group(1)
 ICON = 'data:image/svg+xml,' + ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#F6A9D3'/><stop offset='1' stop-color='#C8B6FF'/></linearGradient></defs><rect width='64' height='64' rx='16' fill='#05050A'/><g transform='translate(8 9) scale(1.5)'><path fill='url(#g)' fill-rule='evenodd' d='" + LOGO + "'/></g></svg>").replace('#', '%23').replace('<', '%3C').replace('>', '%3E')
 FALLBACK = ('<div style="max-width:560px;margin:15vh auto;padding:32px;font:16px/1.6 system-ui,sans-serif;color:#fff;'

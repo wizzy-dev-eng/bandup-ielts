@@ -130,7 +130,7 @@ function lrPlayer(task, { mode = 'practice', embedded = false, save = true, time
   }
   // audio
   let audio = null;
-  if (isL) audio = bindAudio(el, P, task, exam, () => { begin(); if (exam && timer && !timer.started) timer.start(); });
+  if (isL) audio = bindAudio(el, P, task, exam, () => { begin(); if (exam && timer && !timer.started) timer.start(); }, sec => { if (exam && timer) { timer.skip(sec); toast(tr(`${sec} s were taken from the task time`, `Из времени на задание вычтено ${sec} с`)); } });
   // timer
   const begin = () => { if (started) return; started = true; startT = Date.now(); if (timer && !timer.started && !exam) timer.start(); };
   el.addEventListener('input', begin); el.addEventListener('change', begin);
@@ -205,8 +205,9 @@ function audioPanelHtml(P, exam) {
   return `<div class="glass audio" data-audio="${P}"><div class="audio-top">
   <button class="icon-btn lg" data-a="play" aria-label="${esc(t('audio.play'))}" data-i18n-label="audio.play">${ic('play')}</button>
   <div class="audio-meta"><div class="audio-title">${T('audio.play')} ${exam ? `<span class="lp warn" style="margin-left:6px">${T('audio.once')}</span>` : ''}</div><div class="audio-bar"><i></i></div><div class="audio-time" data-a="time">0 / 0</div></div>
-  ${exam ? '' : `<div class="audio-ctrls"><button class="icon-btn" data-a="replay" aria-label="${esc(t('audio.replay'))}" data-i18n-title="audio.replay" title="${esc(t('audio.replay'))}">${ic('replay')}</button><button class="icon-btn" data-a="slow" aria-pressed="false" aria-label="${esc(t('audio.slow'))}" title="${esc(t('audio.slow'))}">0.8×</button></div>`}
-  </div><div data-a="countdown"></div><div class="audio-note" data-a="note"></div>
+  ${exam ? '' : `<div class="audio-ctrls"><button class="icon-btn" data-a="replay" aria-label="${esc(t('audio.replay'))}" data-i18n-title="audio.replay" title="${esc(t('audio.replay'))}">${ic('replay')}</button></div>`}
+  </div>${exam ? '' : `<div class="spd" data-a="spd"><span class="spd-l">${ic('speed')}<span>${esc(tr('Speed', 'Скорость'))}</span></span><div class="spd-track"><input type="range" min="0.5" max="1.5" step="0.05" value="1" data-a="rate" aria-label="${esc(tr('Playback speed', 'Скорость воспроизведения'))}"><span class="spd-ticks" aria-hidden="true">${['0.5', '0.75', '1', '1.25', '1.5'].map(x => `<i data-r="${x}">${x}×</i>`).join('')}</span></div><b class="spd-v" data-a="ratev">1.0×</b></div>`}
+<div data-a="countdown"></div><div class="audio-note" data-a="note"></div>
   <details class="disc" style="margin-bottom:0"><summary>${T('audio.voices')}</summary><div class="dc voices" data-a="voices"></div></details></div>`;
 }
 function buildItems(task, cast) {
@@ -217,7 +218,7 @@ function buildItems(task, cast) {
   });
   return items;
 }
-function bindAudio(root, P, task, exam, onStart) {
+function bindAudio(root, P, task, exam, onStart, onSkip) {
   const box = $(`[data-audio="${P}"]`, root);
   const playB = $('[data-a=play]', box), bar = $('.audio-bar i', box), time = $('[data-a=time]', box), note = $('[data-a=note]', box), cd = $('[data-a=countdown]', box), vbox = $('[data-a=voices]', box);
   const nLines = task.audio.lines.length;
@@ -243,7 +244,8 @@ function bindAudio(root, P, task, exam, onStart) {
       let left = 30;
       cd.innerHTML = `<div class="countdown">${ic('clock')}<span>${lang === 'ru' ? 'Посмотри на вопросы' : 'Look at the questions'}: <b data-cd>0:30</b></span><button class="txt-btn" data-skip>${lang === 'ru' ? 'Пропустить' : 'Skip'}</button></div>`;
       const go = () => { clearInterval(cdTimer); cd.innerHTML = ''; start(0); };
-      $('[data-skip]', cd).addEventListener('click', go);
+      /* skipping the reading time takes the same time from the task timer */
+      $('[data-skip]', cd).addEventListener('click', () => { const l = left; go(); if (l > 0 && onSkip) onSkip(l); });
       cdTimer = setInterval(() => { left--; const c = $('[data-cd]', cd); if (c) c.textContent = '0:' + String(left).padStart(2, '0'); if (left <= 0) go(); }, 1000);
       return;
     }
@@ -252,7 +254,14 @@ function bindAudio(root, P, task, exam, onStart) {
     else start(0);
   });
   const rb = $('[data-a=replay]', box); if (rb) rb.addEventListener('click', () => start(0));
-  const sb = $('[data-a=slow]', box); if (sb) sb.addEventListener('click', () => { rate = rate === 0.8 ? 0.95 : 0.8; sb.setAttribute('aria-pressed', String(rate === 0.8)); if (state === 'playing') { speech.pause(); speech.rate = rate; start(curIdx); } });
+  const rr = $('[data-a=rate]', box), rv = $('[data-a=ratev]', box);
+  if (rr) {
+    const paintR = () => { const x = +rr.value; rv.textContent = x.toFixed(2).replace(/0$/, '') + '×'; rr.style.setProperty('--p', ((x - .5) * 100).toFixed(1) + '%'); $$('.spd-ticks i', box).forEach(i => i.classList.toggle('on', Math.abs(+i.dataset.r - x) < .01)); };
+    let rt = 0;
+    rr.addEventListener('input', () => { rate = +rr.value * 0.95; paintR(); clearTimeout(rt); rt = setTimeout(() => { if (state === 'playing') { speech.pause(); speech.rate = rate; start(curIdx); } }, 260); });
+    $$('.spd-ticks i', box).forEach(i => i.addEventListener('click', () => { rr.value = i.dataset.r; rr.dispatchEvent(new Event('input')); }));
+    paintR();
+  }
   return {
     stop: () => { clearInterval(cdTimer); speech.stop(); if (state === 'playing' || state === 'paused') { state = 'ended'; setIcon(false); } },
     reset: () => { clearInterval(cdTimer); speech.stop(); cd.innerHTML = ''; state = 'idle'; played = false; playB.disabled = false; setIcon(false); bar.style.width = '0'; time.textContent = `0 / ${nLines}`; setNote(); },

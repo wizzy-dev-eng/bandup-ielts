@@ -9,6 +9,7 @@ function settingsBody() {
   ${row('fs', 'type', 'set.fs', seg('fs', [['s', '<span class="fs-s" aria-hidden="true">A</span>', 'set.fs_s'], ['m', '<span class="fs-m" aria-hidden="true">A</span>', 'set.fs_m'], ['l', '<span class="fs-l" aria-hidden="true">A</span>', 'set.fs_l'], ['xl', '<span class="fs-xl" aria-hidden="true">A</span>', 'set.fs_xl']], v.fs))}
   ${row('fw', 'weight', 'set.fw', seg('fw', [['light', T('set.fwLight')], ['normal', T('set.fwNormal')], ['bold', T('set.fwBold')]], v.fw))}
   ${row('lang', 'globe', 'set.lang', seg('lang', [['en', 'English'], ['ru', 'Русский']], lang))}
+  ${Season.on ? row('season', 'snow', 'set.season', `<button type="button" class="switch" role="switch" data-set="season" aria-checked="${v.season !== false}" aria-label="${esc(t('set.season'))}"><i></i></button>`, 'set.seasonHint') : ''}
   <p class="set-preview">${T('set.preview')}</p>`;
 }
 function openSettings(focusKey) {
@@ -24,6 +25,7 @@ function openSettings(focusKey) {
       const b = e.target.closest('[data-set]'); if (!b) return;
       const k = b.dataset.set;
       if (k === 'eco') Settings.set('eco', !Settings.v.eco);
+      else if (k === 'season') { Settings.set('season', Settings.v.season === false); Season.paint(); }
       else if (k === 'lang') setLang(b.dataset.val);
       else Settings.set(k, b.dataset.val);
       refreshSettings();

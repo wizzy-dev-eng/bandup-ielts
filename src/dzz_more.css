@@ -311,8 +311,12 @@ textarea.inp.sm,.adm-annf textarea.inp,.mod-dlg textarea.inp{min-height:84px;fon
 @media (max-width:560px){.md-grid{grid-template-columns:1fr}}
 .md-days{flex-wrap:wrap;border-radius:18px}
 .md-days button{min-height:32px;padding:0 12px;font-size:13px}
-.chk{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:var(--pill);border:1px solid var(--line);font-size:13px;cursor:pointer}
-.chk input{accent-color:var(--lilac);width:15px;height:15px}
+.mod-dlg .chk{display:inline-flex;flex-direction:row;align-items:center;gap:9px;min-height:36px;padding:6px 14px 6px 10px;border-radius:var(--pill);border:1px solid var(--line);background:rgba(255,255,255,.025);font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,background .2s,color .2s}
+.mod-dlg .chk:hover{border-color:var(--line-2);color:#fff}
+.mod-dlg .chk:has(input:checked){border-color:rgba(200,182,255,.45);background:rgba(200,182,255,.08);color:#fff}
+.mod-dlg .chk input{margin:0;flex:none}
+.mod-dlg .chk input:disabled{opacity:.4;cursor:not-allowed}
+.mod-dlg .chk:has(input:disabled){opacity:.55;cursor:not-allowed}
 
 /* ---------- forgot password ---------- */
 .forgot-l{margin:-4px 0 4px;text-align:right;font-size:13px}

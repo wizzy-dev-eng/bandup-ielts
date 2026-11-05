@@ -25,12 +25,14 @@ function premBadgeHtml(u, small) {
   const tip = p.forever ? (p.no ? tr(`Premium forever · one of the first 100 · №${p.no}`, `Premium навсегда · один из первых 100 · №${p.no}`) : tr('Premium forever', 'Premium навсегда')) : tr('Premium until ', 'Premium до ') + fmtDate(p.until, true);
   return `<span class="bdg bdg-prem${small ? ' sm' : ''}" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc('Premium – ' + tip)}">${ic('crown')}${p.forever ? `<span class="pm-inf" aria-hidden="true">∞</span>` : ''}<span>${p.no ? esc(String(p.no)) : 'Premium'}</span></span>`;
 }
+const TRIAL_B = [['t_hex', 'bolt', 'Hexagon', 'Гекса'], ['t_ribbon', 'medal', 'Ribbon', 'Лента'], ['t_star', 'sparkle', 'Star', 'Звезда'], ['t_glitch', 'code', 'Glitch', 'Глитч'], ['t_flame', 'fire', 'Flame', 'Пламя'], ['t_orbit', 'globe', 'Orbit', 'Орбита']];
 function badgesHtml(u, small) {
   const b = Array.isArray(u.badges) ? u.badges : [], out = [];
   const tag = (cls, icon, label, tip) => `<span class="bdg ${cls}${small ? ' sm' : ''}" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(label + ' – ' + tip)}">${icon}<span>${esc(label)}</span></span>`;
   if (b.includes('wizzy')) out.push(tag('bdg-wizzy', lynxMark(), ...badgeText(u, 'wizzy')));
   if (b.includes('neo')) out.push(tag('bdg-neo', lynxMark(), ...badgeText(u, 'neo')));
   if (b.includes('lead_dev')) out.push(tag('bdg-dev', ic('code'), ...badgeText(u, 'lead_dev')));
+  TRIAL_B.forEach(([k, i, en, ru]) => { if (b.includes(k)) { const nm = tr(en, ru), tip = tr('Trial badge', 'Пробный значок'); out.push(`<span class="bdg bdg-t bdg-${k}${small ? ' sm' : ''}" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(nm + ' – ' + tip)}">${ic(i)}<span data-g="${esc(nm)}">${esc(nm)}</span></span>`); } });
   if (u.role === 'owner' && !b.includes('wizzy')) out.push(tag('bdg-owner', ic('crown'), tr('Owner', 'Владелец'), tr('Owner of the site', 'Владелец сайта')));
   if (u.role === 'coowner' && !b.includes('neo')) out.push(tag('bdg-co', ic('crown'), tr('Co-owner', 'Совладелец'), tr('Co-owner of the site', 'Совладелец сайта')));
   if (u.premium) out.push(premBadgeHtml(u, small));
@@ -59,12 +61,6 @@ function parseSocial(k, raw) {
   v = v.replace(/^@/, '').replace(/\/+$/, '');
   return k === 'discord' ? v.toLowerCase() : v;
 }
-function achievementsHtml() {
-  const A = [['trophy', 'First result', 'Первый результат'], ['fire', '7 days in a row', '7 дней подряд'], ['target', 'Band 7 estimate', 'Оценка 7.0'], ['layers', 'Set author', 'Автор набора'], ['headphones', 'All Listening tasks', 'Все задания Listening'], ['compass', 'Full mock test', 'Полный пробный тест']];
-  return `<section class="sec ach-sec"><div class="sec-head"><span class="glass-pill">${ic('trophy')} ${esc(tr('Achievements', 'Достижения'))}<span class="soon">${esc(tr('Soon', 'Скоро'))}</span></span><p class="muted">${esc(tr('Badges for streaks, scores and your own sets are on the way.', 'Скоро здесь появятся награды за серии, баллы и собственные наборы.'))}</p></div>
-  <div class="ach-grid">${A.map(([i, en, ru], n) => `<div class="glass ach" style="--i:${n}" aria-disabled="true"><span class="ach-ic">${ic(i)}<i class="ach-lock">${ic('lock')}</i></span><b>${esc(tr(en, ru))}</b><small>${esc(tr('Locked', 'Закрыто'))}</small></div>`).join('')}</div></section>`;
-}
-/* banner upload: crop to 3:1, 1200×400 JPEG, smaller if the data URL is too long */
 function bannerJpeg(file) {
   return new Promise((res, rej) => {
     if (!/^image\//.test(file.type) || file.size > 20e6) return rej(new Error('bad'));
