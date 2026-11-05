@@ -262,7 +262,7 @@ function notFound(v) { v.innerHTML = `<div class="page"><div class="glass empty"
 
 /* lynx. → lynx.connect on the Connect pages */
 function paintBrand(nav) {
-  const c = nav === 'chat' || nav === 'people';
+  const c = nav === 'chat' || (nav === 'people' && /^#\/people/.test(location.hash));
   $$('#nav .brand, .sheet-top .brand').forEach(a => { a.classList.toggle('is-cn', c); const x = $('.bname', a); if (x && !!$('.bcn', x) !== c) x.innerHTML = c ? 'lynx<b>.</b><span class="bcn">connect</span>' : 'lynx<b>.</b>'; });
   if (typeof paintConnect === 'function') paintConnect();
 }
