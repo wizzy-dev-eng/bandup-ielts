@@ -1,7 +1,7 @@
 /* ---------- home ---------- */
 let heroPlayedOnce = false;
 const CHIPS = [
-  { k: 'hex', x: 30.4, y: 15.9, i: 7 }, { k: 'A', x: 12.7, y: 43.9, i: 8 }, { k: 'B', x: 92.0, y: 45.0, i: 9 }, { k: 'C', x: 88.4, y: 63.8, i: 10 }];
+  { k: 'hex', x: 30.4, y: 17.2, i: 7 }, { k: 'A', x: 12.7, y: 48.0, i: 8 }, { k: 'B', x: 92.0, y: 52.2, i: 9 }, { k: 'C', x: 88.4, y: 65.7, i: 10 }];
 function heroHtml(entering) {
   const chip = c => c.k === 'hex'
     ? `<button class="chip hex" style="left:${c.x}%;top:${c.y}%;--i:${c.i}" data-calc data-i18n-label="hero.chipBand" aria-label="${esc(t('hero.chipBand'))}">9.0</button>`
@@ -26,7 +26,8 @@ route(/^\/$/, (v) => {
   const entering = !heroPlayedOnce && !reduced(); heroPlayedOnce = true;
   if (entering) { document.body.classList.add('first-load'); setTimeout(() => document.body.classList.remove('first-load'), 2000); }
   const facts = D.exam.facts;
-  const secFirst = D.exam.sections.map(s => ({ ...s, first: splitSentences(s.text)[0] }));
+  const ruBrief = { L: 'Участник слушает четыре записи и отвечает на 40 вопросов — по десять в каждой части.', R: 'Раздел длится 60 минут и состоит из трёх секций с 40 вопросами.', W: 'За 60 минут нужно выполнить два задания.', S: 'Speaking — личное интервью с экзаменатором, которое длится 11–14 минут и записывается.' };
+  const secFirst = D.exam.sections.map(s => ({ ...s, first: lang === 'ru' && ruBrief[s.skill] ? ruBrief[s.skill] : splitSentences(s.text)[0] }));
   v.innerHTML = heroHtml(entering) + `<div class="home-sections" id="homeStart">
   <section class="sec" aria-labelledby="hLv"><div class="sec-head"><span class="glass-pill">A · B · C</span><h2 class="sec-title display" id="hLv"><span class="grad" data-i18n="home.levels">${esc(t('home.levels'))}</span></h2><p class="muted">${T('home.levelsSub')}</p></div>
     <div class="grid g3">${D.levels.map(l => `<article class="glass card glow level-card lv-${l.id}"><div class="big">${l.id}</div><h3>${esc(l.name)} · ${esc(l.label)}</h3><div class="meta"><span class="lp"><i></i>CEFR ${esc(l.cefr)}</span><span class="lp"><i></i>IELTS ${esc(l.band)}</span><span class="lp">${ic('clock')} ${esc(l.timing)}</span></div><p>${md(l.intro)}</p><a class="pill pill-white pill-sm" href="#/practice?level=${l.id}" style="align-self:flex-start">${esc(lang === 'ru' ? 'Практика: уровень ' + l.id : 'Practise Level ' + l.id)} ${ic('arrow')}</a></article>`).join('')}</div>

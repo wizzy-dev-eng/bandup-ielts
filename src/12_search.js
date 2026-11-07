@@ -23,6 +23,7 @@ function searchIndex() {
   D.variants.forEach(x => add('tasks', 'variants', variantTitle(x), t('variants.title'), '#/variant/' + x.id, x.title + ' ' + x.id));
   add('settings', 'moon', `${t('set.theme')}: ${t('set.dark')}`, t('set.title'), () => { Settings.set('theme', 'dark'); toast(t('set.dark')); }, 'dark theme night тёмная темная тема ночь');
   add('settings', 'sun', `${t('set.theme')}: ${t('set.light')}`, t('set.title'), () => { Settings.set('theme', 'light'); toast(t('set.light')); }, 'light theme day светлая тема день');
+  add('settings', 'palette', t('set.surface'), t('set.title'), () => openSettings('surface'), 'interface style glass satin solid outline стиль интерфейс стекло сатин плотный контур');
   add('settings', 'leaf', t('set.eco'), t('set.title'), () => openSettings('eco'), 'power saving eco battery animations performance энергосбережение эко батарея анимации');
   add('settings', 'type', t('set.fs'), t('set.title'), () => openSettings('fs'), 'font text size bigger smaller шрифт размер текста крупнее');
   add('settings', 'weight', t('set.fw'), t('set.title'), () => openSettings('fw'), 'font weight bold thin толщина жирный тонкий');

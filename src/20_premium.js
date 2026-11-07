@@ -28,7 +28,7 @@ function promoHtml(p, cls = '') {
 /* fills a placeholder after the API answers; hides it when there is no API */
 function mountPromo(el, cls) {
   if (!el) return;
-  loadPromo().then(p => { if (!document.contains(el)) return; el.innerHTML = promoHtml(p, cls); el.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); }).catch(() => { el.hidden = true; });
+  loadPromo().then(p => { if (!document.contains(el) || (!cls && p.homeVisible === false)) return; el.innerHTML = promoHtml(p, cls); el.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); }).catch(() => { el.hidden = true; });
 }
 function premNudge() {
   openDialog({ title: 'Premium', cls: 'pm-nudge', body: `<div class="pmn"><span class="pmn-gem" aria-hidden="true">${ic('crown')}</span><p class="muted">${esc(tr('This look comes with Premium. Animated GIFs, exclusive frames and banners, a badge and more.', 'Это оформление доступно с Premium. Анимированные GIF, эксклюзивные рамки и баннеры, значок и другое.'))}</p></div>`,

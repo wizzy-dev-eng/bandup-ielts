@@ -9,7 +9,7 @@ function chStickers(force) {
 on('stickers', () => { CH_STK.at = 0; });
 on('auth', () => { CH_DEC.clear(); CH_PEND.clear(); });
 const CH_RE = /^\/chat(?:\/(\d+))?$/, CH_GAP = 5 * 60e3;
-const CH_EMO = ['😀', '😂', '🥲', '😊', '😍', '🥰', '😎', '🤩', '🤔', '😅', '😴', '😭', '😡', '🤯', '👍', '👎', '👏', '🙏', '💪', '🤝', '👀', '🔥', '✨', '🎉', '❤️', '💜', '💯', '✅', '❌', '⭐', '📚', '✍️', '🎧', '🗣️', '🏆', '☕', '🍀', '🌙', '🦊', '🐱'];
+const EMO_RU = ['Смайлы и эмоции', 'Люди и тело', 'Компоненты', 'Животные и природа', 'Еда и напитки', 'Путешествия и места', 'Занятия', 'Предметы', 'Символы', 'Флаги'];
 const chLoc = () => lang === 'ru' ? 'ru-RU' : 'en-GB';
 const chTime = d => new Date(d).toLocaleTimeString(chLoc(), { hour: '2-digit', minute: '2-digit' });
 function chDay(d) {
@@ -310,8 +310,8 @@ route(CH_RE, (v, [cid0]) => {
     }
     const ph = mode === 'on' ? tr('Encrypted message', 'Зашифрованное сообщение') : tr('Message', 'Сообщение');
     ft.innerHTML = `<form class="ch-comp" data-comp novalidate><button type="button" class="ch-cb" data-emo aria-expanded="false" aria-label="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}" data-tip="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}">${ic('smile')}</button><div class="ch-ta"><textarea name="t" rows="1" maxlength="2000" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></textarea><span class="ch-cnt" data-cnt aria-live="polite"></span></div><button type="submit" class="ch-send" aria-label="${esc(tr('Send', 'Отправить'))}" disabled>${ic('send')}</button>
-      <div class="ch-emo glass" data-emop hidden role="group" aria-label="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}"><div class="seg ch-emt"><button type="button" data-emt="e" aria-pressed="true">${ic('smile')}<span>${esc(tr('Emoji', 'Эмодзи'))}</span></button><button type="button" data-emt="s" aria-pressed="false">${ic('sticker')}<span>${esc(tr('Stickers', 'Стикеры'))}</span></button></div><div class="ch-emg" data-emg>${CH_EMO.map(x => `<button type="button" data-e="${x}" aria-label="${x}">${x}</button>`).join('')}</div><div class="ch-stg" data-stg hidden></div></div></form>`;
-    const ta = $('textarea', ft); if (keepVal) { ta.value = keepVal; taFit(ta); }
+      <div class="ch-emo glass" data-emop hidden role="group" aria-label="${esc(tr('Emoji and stickers', 'Эмодзи и стикеры'))}"><div class="seg ch-emt"><button type="button" data-emt="e" aria-pressed="true">${ic('smile')}<span>${esc(tr('Emoji', 'Эмодзи'))}</span></button><button type="button" data-emt="s" aria-pressed="false">${ic('sticker')}<span>${esc(tr('Stickers', 'Стикеры'))}</span></button></div><div data-emoji-controls><input class="inp ch-emsearch" data-emsearch type="search" placeholder="${esc(tr('Search emoji (English)', 'Поиск эмодзи (по-английски)'))}" aria-label="${esc(tr('Search emoji', 'Поиск эмодзи'))}"><select class="inp ch-emgroup" data-emgroup aria-label="${esc(tr('Emoji category', 'Категория эмодзи'))}">${EMO_GROUPS.map((g,i) => `<option value="${i}">${esc(lang === 'ru' ? (EMO_RU[i] || g) : g)}</option>`).join('')}</select><p class="ch-emhint">${esc(tr('Or use your device emoji keyboard. Windows: Win + . · Mac: Control + Command + Space', 'Или используй эмодзи-клавиатуру устройства. Windows: Win + . · Mac: Control + Command + Space'))}</p><div class="ch-emg" data-emg></div><button type="button" class="txt-btn ch-emmore" data-emmore>${esc(tr('Show more', 'Показать ещё'))}</button></div><div class="ch-stg" data-stg hidden></div></div></form>`;
+    const ta = $('textarea', ft); paintEmoji(); if (keepVal) { ta.value = keepVal; taFit(ta); }
     if (c.kind !== 'dm') acAttach(ta, { mode: 'mention', up: true, wide: 340, remote: c.kind === 'global', anchor: () => $('.ch-ta', main), local: () => mentionPool(st), title: tr('Mention', 'Упомянуть') });
   }
   function mentionPool(st) {
@@ -324,10 +324,19 @@ route(CH_RE, (v, [cid0]) => {
     if (!arr.length) return `<div class="ch-stk-none">${ic('sticker')}<p>${esc(tr('No stickers yet. The site team adds them.', 'Стикеров пока нет. Их добавляет команда сайта.'))}</p></div>`;
     return arr.map(x => `<button type="button" class="ch-stk" data-stkid="${x.id}" aria-label="${esc(x.name || tr('Sticker', 'Стикер'))}"${x.name ? ` data-tip="${esc(x.name)}"` : ''}><img src="${esc(x.url)}" alt="" loading="lazy" decoding="async" draggable="false"></button>`).join('');
   }
+  let emojiLimit = 160;
+  function paintEmoji() {
+    const p = $('[data-emop]', main); if (!p) return; const q = $('[data-emsearch]', p).value.trim().toLowerCase(), group = +$('[data-emgroup]', p).value;
+    const matches = EMO_DATA.filter(x => q ? x[1].includes(q) || x[0].includes(q) : x[2] === group);
+    $('[data-emg]', p).innerHTML = matches.slice(0, emojiLimit).map(x => `<button type="button" data-e="${esc(x[0])}" aria-label="${esc(x[1])}" title="${esc(x[1])}">${esc(x[0])}</button>`).join('');
+    $('[data-emmore]', p).hidden = matches.length <= emojiLimit;
+  }
+  main.addEventListener('input', e => { if (e.target.matches('[data-emsearch]')) { emojiLimit = 160; paintEmoji(); } });
+  main.addEventListener('change', e => { if (e.target.matches('[data-emgroup]')) { emojiLimit = 160; $('[data-emsearch]', main).value = ''; paintEmoji(); } });
   function emoTab(k) {
     const p = $('[data-emop]', main); if (!p) return;
     $$('[data-emt]', p).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.emt === k)));
-    $('[data-emg]', p).hidden = k !== 'e'; const g = $('[data-stg]', p); g.hidden = k !== 's';
+    $('[data-emoji-controls]', p).hidden = k !== 'e'; const g = $('[data-stg]', p); g.hidden = k !== 's';
     if (k !== 's') return;
     if (CH_STK.list) g.innerHTML = stkGridHtml(CH_STK.list); else g.innerHTML = `<div class="ch-stk-none"><span class="spin" aria-hidden="true"></span></div>`;
     chStickers().then(arr => { if (document.contains(g) && !g.hidden) g.innerHTML = stkGridHtml(arr); }).catch(ex => { if (document.contains(g)) g.innerHTML = `<div class="ch-stk-none"><p>${esc(errText(ex))}</p></div>`; });
@@ -349,7 +358,7 @@ route(CH_RE, (v, [cid0]) => {
     if (!id) { emptyMain(); paintList(); document.title = `${D.meta.brand} – ${tr('Chats', 'Чаты')}`; return; }
     const st = S = { id, msgs: [], users: {}, lastId: 0, firstId: 0, more: false, now: 0, peerRead: 0, chat: null, typing: [], atBottom: true, newN: 0, sending: 0, localOk: false, loadingOld: false, stk: {}, pins: [], pinIdx: 0 };
     paintList();
-    if (!prev || prev.id !== id) main.innerHTML = `<div class="ch-load">${'<div class="ch-sk m"><i></i><span><b></b><s></s></span></div>'.repeat(4)}</div>`;
+    if (!prev || prev.id !== id) main.innerHTML = `<div class="ch-load ch-loading-quiet" role="status">${esc(tr('Opening chat…', 'Открываем чат…'))}</div>`;
     try {
       const j = await api('msgs', { q: { chat: id, full: 1, seen: 1 } });
       if (S !== st || dead()) return;
@@ -437,11 +446,12 @@ route(CH_RE, (v, [cid0]) => {
   async function send(st, text) {
     text = text.replace(/^\s*\n|\s+$/g, ''); if (!text.trim()) return false;
     if ([...text].length > 2000) { toast(errText({ code: 'too_long' })); return false; }
+    const restore = () => { const ta = $('[data-comp] textarea', main); if (ta && S === st) { ta.value = text + (ta.value ? '\n' + ta.value : ''); taFit(ta); } };
     const mode = e2eMode(st); let body = text, enc = false;
-    if (mode === 'locked') { toast(tr('Unlock encryption first', 'Сначала разблокируй шифрование')); return false; }
-    if (mode === 'on') { try { body = await E2E.seal(text, st.chat.peer.pub); enc = true; } catch (e) { toast(tr('Could not encrypt the message', 'Не удалось зашифровать сообщение')); return false; } }
+    if (mode === 'locked') { restore(); toast(tr('Unlock encryption first', 'Сначала разблокируй шифрование')); return false; }
+    if (mode === 'on') { try { body = await E2E.seal(text, st.chat.peer.pub); enc = true; } catch (e) { restore(); toast(tr('Could not encrypt the message', 'Не удалось зашифровать сообщение')); return false; } }
     const tmp = { id: 'p' + (++pendN), by: myL, mine: true, body: text, enc: false, kind: 'text', at: new Date().toISOString(), pend: true };
-    return push(st, tmp, { chat: st.id, body, enc }, enc ? text : null, () => { const ta = $('[data-comp] textarea', main); if (ta && !ta.value) { ta.value = text; taFit(ta); } });
+    return push(st, tmp, { chat: st.id, body, enc }, enc ? text : null, restore);
   }
   function sendSticker(st, s) {
     if (e2eMode(st) === 'locked') { toast(tr('Unlock encryption first', 'Сначала разблокируй шифрование')); return; }
@@ -451,7 +461,6 @@ route(CH_RE, (v, [cid0]) => {
   }
   async function push(st, tmp, payload, plain, fail) {
     st.users[myL] = st.users[myL] || { login: myL, nick: me.nick, avatar: me.avatar, role: me.role, premium: me.premium };
-    st.msgs.push(tmp); appendMsgs(st, [tmp], !fxOff()); stick(st);
     st.sending++;
     try {
       const j = await api('msg', { method: 'POST', body: payload });
@@ -459,10 +468,11 @@ route(CH_RE, (v, [cid0]) => {
       if (plain != null) CH_DEC.set(j.message.id, { t: plain });
       Object.assign(st.stk, j.stickers || {});
       st.users[myL] = j.user;
-      const i = st.msgs.indexOf(tmp); st.msgs.splice(i, 1);
+      const i = st.msgs.indexOf(tmp); if (i >= 0) st.msgs.splice(i, 1);
       const li = $(`li[data-mid="${tmp.id}"]`, main);
       if (!st.msgs.some(m => m.id === j.message.id)) { const real = st.msgs.filter(m => !m.pend); st.msgs.splice(real.length, 0, j.message); st.lastId = Math.max(st.lastId, j.message.id); }
       if (li) { const k = st.msgs.findIndex(m => m.id === j.message.id), tpl = document.createElement('template'); tpl.innerHTML = msgHtml(st, j.message, st.msgs[k - 1], false); if ($(`li[data-mid="${j.message.id}"]`, main)) li.remove(); else li.replaceWith(tpl.content.lastElementChild); }
+      if (!li && !$(`li[data-mid="${j.message.id}"]`, main)) { appendMsgs(st, [j.message], !fxOff()); stick(st); }
       const c = findChat(st.id); if (c) { c.last = { ...j.message, nick: me.nick }; c.at = j.message.at; if (list && c.kind !== 'global') { list.chats = [c, ...list.chats.filter(x => x !== c)]; } paintList(); }
       return true;
     } catch (e) {
@@ -506,6 +516,7 @@ route(CH_RE, (v, [cid0]) => {
     const pu = e.target.closest('[data-punpin]'); if (pu) return pinMsg(st, +pu.dataset.punpin, false);
     const pm = e.target.closest('[data-pinm]'); if (pm) { const m = st.msgs.find(x => String(x.id) === pm.dataset.pinm); if (m) pinMsg(st, m.id, !m.pin); return; }
     const gt = e.target.closest('[data-goto]'); if (gt) return jumpTo(st, +gt.dataset.goto);
+    if (e.target.closest('[data-emmore]')) { emojiLimit += 160; paintEmoji(); return; }
     const et = e.target.closest('[data-emt]'); if (et) return emoTab(et.dataset.emt);
     const sk = e.target.closest('[data-stkid]'); if (sk) { const s = (CH_STK.list || []).find(x => String(x.id) === sk.dataset.stkid); const p = $('[data-emop]', main); if (p) { p.hidden = true; $('[data-emo]', main).setAttribute('aria-expanded', 'false'); } if (s) sendSticker(st, s); return; }
     const eb = e.target.closest('[data-emo]');

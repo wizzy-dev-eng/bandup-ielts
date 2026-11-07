@@ -261,7 +261,7 @@ function parseSpotify(v) {
   if (!m) throw err(400, 'spotify_bad');
   return m[1].toLowerCase() + ':' + m[2];
 }
-const musicOut = u => { if (!u.music_v) return null; const m = obj(u.music_meta); return { url: imgUrl('m', u, u.music_v), cover: m.c ? imgUrl('c', u, u.music_v) : null, title: m.t || '', artist: m.a || '', album: m.al || '', dur: num(m.d), size: N(m.size) || 0, mime: m.mime || '' }; };
+const musicOut = u => { if (!u.music_v) return null; const m = obj(u.music_meta); return { url: imgUrl('m', u, u.music_v), cover: m.c ? imgUrl('c', u, u.music_v) : null, title: m.t || '', artist: m.a || '', album: m.al || '', shape: m.shape === 'square' ? 'square' : 'round', dur: num(m.d), size: N(m.size) || 0, mime: m.mime || '' }; };
 const BANNERS = ['aurora', 'sunset', 'ocean', 'nebula', 'mint', 'ember', 'mono'], FRAMES = ['glow', 'gold', 'aurora', 'ice', 'neon'];
 const P_BANNERS = ['galaxy', 'holo'], P_FRAMES = ['cosmic', 'prism'];
 const FOREVER = '9999-12-31T00:00:00Z';
@@ -920,7 +920,7 @@ R['GET admin'] = async ctx => {
   return {
     me: { role: me.role, login: me.login, perms: permsOf(me), direct: isDirect(me), pin: !!me.pin_hash }, users: Number(cnt.n), premium: Number(cnt.p), ipBans: Number(cnt.ipb),
     queue: queue.map(a => ({ id: Number(a.id), kind: a.kind, payload: obj(a.payload), created: iso(a.created_at), user: a.login ? card(a) : null, by: a.by_login ? { login: a.by_login, nick: a.by_nick } : null })),
-    ...(own ? { perms: PERMS, permDef: PERM_DEF, badgeList: ALL_BADGES, excl: await badgeExcl(), season: { ...(await seasonCfg()), on: seasonOn(await seasonCfg()), today: mskDay() } } : {}),
+    ...(own ? { perms: PERMS, permDef: PERM_DEF, badgeList: ALL_BADGES, excl: await badgeExcl(), promoVisible: ((await q(`SELECT v FROM kv WHERE k = 'promo_home_visible'`))[0] || {}).v !== false, season: { ...(await seasonCfg()), on: seasonOn(await seasonCfg()), today: mskDay() } } : {}),
     flags: flags.map(f => ({ id: Number(f.id), field: f.field, text: f.text, words: arr(f.words), ref: f.ref ? Number(f.ref) : null, created: iso(f.created_at), user: card(f), canAct: !STAFF.includes(f.role) })),
     resets: resets.map(r => ({ id: Number(r.id), note: r.note, created: iso(r.created_at), expires: iso(r.expires_at), user: card(r), canAct: canReset(me, r.role) })),
     banned: banned.map(x => ({ ...card(x), until: iso(x.banned_until), reason: x.ban_reason || '', ipBans: Number(x.ipn) })),
@@ -933,6 +933,12 @@ R['POST admin'] = async ctx => {
   const me = await need(ctx); if (!isStaff(me)) throw err(403, 'forbidden');
   await needPin(ctx, me);
   const b = ctx.body, q = db(), own = me.role === 'owner';
+  if (b.op === 'promo_visibility') {
+    if (!own || String(me.login).toLowerCase() !== 'wizzy') throw err(403, 'forbidden');
+    if (typeof b.visible !== 'boolean') throw err(400, 'bad');
+    await q(`INSERT INTO kv (k, v) VALUES ('promo_home_visible', $1::jsonb) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`, [JSON.stringify(b.visible)]);
+    return { ok: true, visible: b.visible };
+  }
   const OP_PERM = { flag: 'flags', reset: 'resets', announce: 'announce', unannounce: 'announce' };
   if (OP_PERM[b.op]) needPerm(me, OP_PERM[b.op]);
   else if (['approve', 'perms', 'badge_excl', 'season'].includes(b.op) && !own) throw err(403, 'forbidden');
@@ -1159,7 +1165,8 @@ R['PUT keys'] = async ctx => {
 R['GET promo'] = async ctx => {
   const r = (await db()(`SELECT (v #>> '{}')::int AS n FROM kv WHERE k = 'promo_n'`))[0];
   const n = Math.min(PROMO_MAX, r ? Number(r.n) : 0);
-  return { given: n, total: PROMO_MAX, done: n >= PROMO_MAX };
+  const visibility = (await db()(`SELECT v FROM kv WHERE k = 'promo_home_visible'`))[0];
+  return { given: n, total: PROMO_MAX, done: n >= PROMO_MAX, homeVisible: !visibility || visibility.v !== false };
 };
 
 /* ---------- friends ---------- */
@@ -1281,7 +1288,7 @@ R['POST msg'] = async ctx => {
   let body, kind = 'text', stk = null;
   if (sticker) { const r = (await q(`SELECT id, v FROM stickers WHERE id = $1`, [N(b.sticker) || 0]))[0]; if (!r) throw err(404, 'sticker_gone'); body = String(N(r.id)); kind = 'sticker'; stk = r; }
   else if (enc) { body = String(b.body || ''); if (!okEnc(body)) throw err(400, 'bad'); }
-  else { body = clean(b.body, CHAT_MAX).replace(/\n{4,}/g, '\n\n\n'); if (len(body) > CHAT_MAX) throw err(400, 'too_long'); }
+  else { body = String(b.body == null ? '' : b.body).replace(/[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200E-\u200F\u202A-\u202E\u2066-\u2069]/g, '').trim().replace(/\n{4,}/g, '\n\n\n'); if (len(body) > CHAT_MAX) throw err(400, 'too_long'); }
   if (!body) throw err(400, 'text_bad');
   if (c.kind === 'dm') {
     const p = (await q(`SELECT u.id, u.privacy, u.banned_until FROM chat_members m JOIN users u ON u.id = m.user_id WHERE m.chat_id = $1 AND m.user_id <> $2`, [cid, me.id]))[0];
@@ -1490,6 +1497,13 @@ R['POST music'] = async ctx => {
     if (!first || !musMagic(Buffer.from(first.h, 'base64'), pend.meta.mime)) { await q(`DELETE FROM music_parts WHERE user_id = $1 AND ver = $2`, [me.id, pend.v]); await q(`UPDATE users SET music_pending = NULL WHERE id = $1`, [me.id]); throw err(400, 'music_bad'); }
     const r = (await q(`UPDATE users SET music_v = $2, music_meta = $3::jsonb, music_cover = $4, music_pending = NULL WHERE id = $1 RETURNING ${UCOLS}`, [me.id, pend.v, JSON.stringify(pend.meta), pend.cover || null]))[0];
     await q(`DELETE FROM music_parts WHERE user_id = $1 AND ver <> $2`, [me.id, pend.v]);
+    return { ok: true, user: self(r) };
+  }
+  if (op === 'shape') {
+    if (!me.music_v) throw err(404, 'not_found');
+    if (!['round', 'square'].includes(b.shape)) throw err(400, 'bad');
+    const m = { ...obj(me.music_meta), shape: b.shape };
+    const r = (await q(`UPDATE users SET music_meta = $2::jsonb WHERE id = $1 RETURNING ${UCOLS}`, [me.id, JSON.stringify(m)]))[0];
     return { ok: true, user: self(r) };
   }
   if (op === 'meta') {

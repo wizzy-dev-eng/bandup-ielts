@@ -30,13 +30,13 @@ const brandHtml = () => `<span class="logo-wrap">${logoSvg()}${NY_HAT}</span><sp
 
 /* ---------- extra UI strings ---------- */
 Object.assign(D.i18n.en, {
-  'set.season': 'New Year theme', 'set.seasonHint': 'Garland, a Santa hat on the lynx and light snow.', 'set.title': 'Settings', 'set.theme': 'Theme', 'set.dark': 'Dark', 'set.light': 'Light', 'set.eco': 'Power saving', 'set.ecoHint': 'Stops animations and heavy glass effects so the site runs faster on weak devices.',
+  'set.surface': 'Interface style', 'set.glass': 'Glass', 'set.satin': 'Satin', 'set.solid': 'Solid', 'set.outline': 'Outline', 'set.season': 'New Year theme', 'set.seasonHint': 'Garland, a Santa hat on the lynx and light snow.', 'set.title': 'Settings', 'set.theme': 'Theme', 'set.dark': 'Dark', 'set.light': 'Light', 'set.eco': 'Power saving', 'set.ecoHint': 'Stops animations and heavy glass effects so the site runs faster on weak devices.',
   'set.fs': 'Text size', 'set.fw': 'Text weight', 'set.fwLight': 'Light', 'set.fwNormal': 'Regular', 'set.fwBold': 'Bold', 'set.lang': 'Language', 'set.reset': 'Reset settings', 'set.preview': 'The quick brown lynx jumps over the lazy dog.',
   'search.ph': 'Search sections, settings and people', 'search.people': 'Search in people', 'search.sections': 'Sections', 'search.settings': 'Settings', 'search.tasks': 'Tasks',
   'auth.signup': 'Sign up', 'auth.login': 'Log in', 'auth.logout': 'Log out', 'auth.myProfile': 'My profile'
 });
 Object.assign(D.i18n.ru, {
-  'set.season': 'Новогодняя тема', 'set.seasonHint': 'Гирлянда, шапка Санты у рыси и лёгкий снег.', 'set.title': 'Настройки', 'set.theme': 'Тема', 'set.dark': 'Тёмная', 'set.light': 'Светлая', 'set.eco': 'Энергосбережение', 'set.ecoHint': 'Отключает анимации и тяжёлые стеклянные эффекты, чтобы сайт быстрее работал на слабых устройствах.',
+  'set.surface': 'Стиль интерфейса', 'set.glass': 'Стекло', 'set.satin': 'Сатин', 'set.solid': 'Плотный', 'set.outline': 'Контур', 'set.season': 'Новогодняя тема', 'set.seasonHint': 'Гирлянда, шапка Санты у рыси и лёгкий снег.', 'set.title': 'Настройки', 'set.theme': 'Тема', 'set.dark': 'Тёмная', 'set.light': 'Светлая', 'set.eco': 'Энергосбережение', 'set.ecoHint': 'Отключает анимации и тяжёлые стеклянные эффекты, чтобы сайт быстрее работал на слабых устройствах.',
   'set.fs': 'Размер текста', 'set.fw': 'Толщина текста', 'set.fwLight': 'Тонкий', 'set.fwNormal': 'Обычный', 'set.fwBold': 'Жирный', 'set.lang': 'Язык', 'set.reset': 'Сбросить настройки', 'set.preview': 'Съешь же ещё этих мягких французских булок, да выпей чаю.',
   'search.ph': 'Поиск разделов, настроек и людей', 'search.people': 'Искать среди людей', 'search.sections': 'Разделы', 'search.settings': 'Настройки', 'search.tasks': 'Задания',
   'auth.signup': 'Регистрация', 'auth.login': 'Войти', 'auth.logout': 'Выйти', 'auth.myProfile': 'Мой профиль'
@@ -46,10 +46,10 @@ Object.assign(D.i18n.ru, {
 const SET_KEY = 'lynx.settings';
 const FS = { s: .9, m: 1, l: 1.12, xl: 1.25 }, FW = { light: -100, normal: 0, bold: 100 };
 const Settings = {
-  v: Object.assign({ theme: null, eco: false, fs: 'm', fw: 'normal' }, store.get(SET_KEY, {})),
+  v: Object.assign({ theme: null, eco: false, fs: 'm', fw: 'normal', surface: 'glass' }, store.get(SET_KEY, {})),
   get(k) { return this.v[k]; },
   set(k, val) { this.v[k] = val; store.set(SET_KEY, this.v); applySettings(); emit('settings', { k, val }); },
-  reset() { this.v = { theme: this.v.theme, eco: false, fs: 'm', fw: 'normal' }; store.set(SET_KEY, this.v); applySettings(); emit('settings', {}); }
+  reset() { this.v = { theme: this.v.theme, eco: false, fs: 'm', fw: 'normal', surface: 'glass' }; store.set(SET_KEY, this.v); applySettings(); emit('settings', {}); }
 };
 (() => { const old = store.get('bandup.theme', null); if (!Settings.v.theme && (old === 'light' || old === 'dark')) Settings.v.theme = old; })();
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -60,6 +60,7 @@ function applySettings() {
   const th = v.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   const changed = r.dataset.theme !== th;
   r.dataset.theme = th;
+  r.dataset.surface = ['glass', 'satin', 'solid', 'outline'].includes(v.surface) ? v.surface : 'glass';
   const m = $('meta[name=theme-color]'); if (m) m.content = th === 'light' ? '#F6F5FB' : '#05050A';
   const cs = $('meta[name=color-scheme]'); if (cs) cs.content = th;
   r.style.setProperty('--fs', FS[v.fs] || 1); r.style.setProperty('--fw', FW[v.fw] || 0);

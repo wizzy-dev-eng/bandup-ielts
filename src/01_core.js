@@ -50,6 +50,7 @@ function applyLang(root = document) {
   document.documentElement.lang = lang;
   $$('[data-i18n]', root).forEach(el => { el.textContent = t(el.dataset.i18n); });
   $$('[data-i18n-label]', root).forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nLabel)));
+  $$('[data-i18n-tip]', root).forEach(el => { el.dataset.tip = t(el.dataset.i18nTip); });
   $$('[data-i18n-title]', root).forEach(el => el.setAttribute('title', t(el.dataset.i18nTitle)));
   $$('[data-i18n-ph]', root).forEach(el => el.setAttribute('placeholder', t(el.dataset.i18nPh)));
 }

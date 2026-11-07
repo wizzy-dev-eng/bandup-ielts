@@ -364,7 +364,6 @@ route(/^\/me$/, v => {
     <div class="look-sec"><h3 class="look-h">${esc(tr('Profile colour', 'Цвет профиля'))}</h3>${cwHtml(u.color)}<p class="faint look-note">${esc(tr('The colour tints the glass of your public profile with a soft gradient.', 'Цвет мягким градиентом окрашивает стекло твоего публичного профиля.'))}</p></div>
     ${titlePickHtml(u)}</section>
    ${badgeEditorHtml(u)}
-   ${musicCardHtml(u)}
    <form class="glass panel me-card" data-sf novalidate><h2 class="grp-title">${ic('link')} ${esc(tr('Social links', 'Соцсети'))}</h2><p class="faint" style="margin:0;font-size:13px">${esc(tr('Paste a link or a username. The links appear in your public profile.', 'Вставь ссылку или ник – они появятся в публичном профиле.'))}</p>
     ${SOC.map(([k, n]) => fld({ name: 's_' + k, label: n, icon: k, value: (u.socials || {})[k] || '', ph: { discord: tr('username or user ID', 'ник или ID'), github: 'username', telegram: '@username', tiktok: '@username' }[k], extra: 'maxlength="100" inputmode="url"' })).join('')}
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('save')} ${esc(t('profile.save'))}</button></div></form>
@@ -380,7 +379,7 @@ route(/^\/me$/, v => {
     <div class="row"><button class="pill pill-white" type="submit"><span class="spin" aria-hidden="true"></span>${ic('lock')} ${esc(tr('Change password', 'Сменить пароль'))}</button></div></form>
    <div class="glass panel me-card danger"><h2 class="grp-title">${ic('alert')} ${esc(tr('Session and account', 'Сессия и аккаунт'))}</h2><p class="muted">${esc(tr('Logging out clears your results from this browser; they stay in your account.', 'При выходе результаты удаляются из этого браузера, но остаются в аккаунте.'))}</p>
     <div class="row"><button type="button" class="pill pill-outline" data-logout>${ic('logout')} ${esc(t('auth.logout'))}</button><button type="button" class="pill pill-danger" data-delacc>${ic('trash')} ${esc(tr('Delete account', 'Удалить аккаунт'))}</button></div></div>
-  </div></div>`;
+  </div><div class="me-music-full">${musicCardHtml(u)}</div></div>`;
   $$('.fld', v).forEach(x => { const h = $('.fld-hint', x); if (h) x.dataset.hint = h.textContent; });
   const pf = $('[data-pf]', v), lf = $('[data-lf]', v), pwf = $('[data-pwf]', v);
   const patch = async body => { const j = await api('profile', { method: 'PATCH', body }); Auth.setUser(j.user); return j.user; };

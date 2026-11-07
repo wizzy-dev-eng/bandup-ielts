@@ -16,7 +16,7 @@ const ACH_D = {
 const achName = id => ACH_D[id] ? tr(ACH_D[id][1], ACH_D[id][2]) : '';
 function titleHtml(id, sm) {
   const a = ACH_D[id]; if (!a) return '';
-  return `<span class="ttl${sm ? ' sm' : ''}" style="--th:${a[5]}" data-tip="${esc(tr('Title for: ', 'Титул за: ') + tr(a[3], a[4]))}" tabindex="0">${ic(a[0])}<span>${esc(tr(a[1], a[2]))}</span></span>`;
+  return `<span class="ttl ttl-${esc(id)}${sm ? ' sm' : ''}" style="--th:${a[5]}" data-tip="${esc(tr('Title for: ', 'Титул за: ') + tr(a[3], a[4]))}" tabindex="0">${ic(a[0])}<span>${esc(tr(a[1], a[2]))}</span></span>`;
 }
 function achievementsHtml(u) {
   const got = new Set((u && u.ach) || []), ids = Object.keys(ACH_D), n = ids.filter(k => got.has(k)).length;
@@ -98,6 +98,7 @@ function musCurHtml(u) {
   const m = u && u.music;
   return `${m ? mpHtml(m, 'mp-me') : `<div class="mus-empty">${ic('disc')}<span><b>${esc(tr('No track yet', 'Трека пока нет'))}</b><small>${esc(tr('It will play in your profile, like in Telegram.', 'Он будет играть в профиле, как в Telegram.'))}</small></span></div>`}
   <div class="row mus-acts"><label class="pill pill-sm ${m ? 'pill-glass' : 'pill-white'} file-btn">${ic('upload')} ${esc(m ? tr('Replace', 'Заменить') : tr('Upload a track', 'Загрузить трек'))}<input type="file" accept="audio/*,.mp3,.m4a,.flac,.ogg,.opus,.wav" data-musfile hidden></label>${m ? `<button type="button" class="pill pill-sm pill-glass" data-musedit>${ic('pen')} ${esc(tr('Edit', 'Изменить'))}</button><button type="button" class="txt-btn" data-musdel>${ic('trash')} ${esc(tr('Remove', 'Убрать'))}</button>` : ''}</div>
+  ${m ? `<div class="mus-shape"><span>${esc(tr('Cover shape', 'Форма обложки'))}</span><div class="seg" role="group" aria-label="${esc(tr('Cover shape', 'Форма обложки'))}">${[['round', tr('Round', 'Круглая')], ['square', tr('Square', 'Квадратная')]].map(([k, l]) => `<button type="button" data-musshape="${k}" aria-pressed="${(m.shape || 'round') === k}">${esc(l)}</button>`).join('')}</div></div>` : ''}
   <p class="faint look-note">${esc(tr('MP3, M4A, FLAC, OGG or WAV up to 6 MB. The title, artist and cover are read from the file.', 'MP3, M4A, FLAC, OGG или WAV до 6 МБ. Название, исполнитель и обложка читаются из файла.'))}</p>`;
 }
 function musicCardHtml(u) {
@@ -170,6 +171,7 @@ function bindMusicCard(root, relayout) {
   };
   sf.addEventListener('submit', e => { e.preventDefault(); const raw = sf.elements.spotify.value.trim(); if (!raw) return spSave(null); const s = spotifyParse(raw); if (!s) return setMsg(sf, 'spotify', errText({ code: 'spotify_bad' })); spSave(raw); });
   box.addEventListener('click', async e => {
+    const sh = e.target.closest('[data-musshape]'); if (sh) { if (sh.dataset.musshape === (Auth.user.music.shape || 'round')) return; busyBtn(sh, true); try { const j = await api('music', { method: 'POST', body: { op: 'shape', shape: sh.dataset.musshape } }); Auth.setUser(j.user); repaint(); toast(t('profile.saved')); } catch (ex) { toast(errText(ex)); busyBtn(sh, false); } return; }
     if (e.target.closest('[data-musedit]')) return musMetaDialog(repaint);
     if (e.target.closest('[data-sprm]')) return spSave(null);
     if (e.target.closest('[data-musdel]')) {

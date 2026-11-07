@@ -15,7 +15,7 @@ function shellHtml() {
     <div class="nav-right">
       <div class="lang"><button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" data-i18n-label="nav.lang" aria-label="${esc(t('nav.lang'))}">${ic('globe')}<span class="lc">${lang.toUpperCase()}</span>${ic('chev', 'chev')}</button>
         <div class="lang-menu" id="langMenu" role="menu" hidden><button role="menuitemradio" data-lang="en" aria-checked="${lang === 'en'}"><span>English · EN</span><span class="mchk">${ic('check', 'draw')}</span></button><button role="menuitemradio" data-lang="ru" aria-checked="${lang === 'ru'}"><span>Русский · RU</span><span class="mchk">${ic('check', 'draw')}</span></button></div></div>
-      <button class="icon-btn gear-btn" id="gearBtn" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-label="set.title" aria-label="${esc(t('set.title'))}" data-tip="${esc(t('set.title'))}">${ic('gear')}</button>
+      <button class="icon-btn gear-btn" id="gearBtn" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-label="set.title" data-i18n-tip="set.title" aria-label="${esc(t('set.title'))}" data-tip="${esc(t('set.title'))}">${ic('gear')}</button>
       <div class="auth-slot" id="authSlot"></div>
       <button class="burger" id="burger" aria-expanded="false" aria-controls="sheet" data-i18n-label="nav.menu" aria-label="${esc(t('nav.menu'))}"><i></i><i></i></button>
     </div>
